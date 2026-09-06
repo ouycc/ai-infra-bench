@@ -24,6 +24,26 @@ candidate_status="$(git -c safe.directory="${repo}" -C "${repo}" status --short)
   printf 'candidate_patch_sha256=%s\n' "${candidate_patch_sha256}"
   printf '%s\n' "${candidate_status}"
 } > /logs/verifier/candidate-provenance.txt
+
+# Verify frozen reference is present and unmodified
+frozen_ref=/opt/ai-infra-bench/reference-int8/reference_int8_kernel.py
+if [[ ! -f "${frozen_ref}" ]]; then
+  printf 'frozen_reference_missing\n' > /logs/verifier/failure-stage.txt
+  printf '0\n' > /logs/verifier/reward.txt
+  exit 0
+fi
+
+expected_sha256=36406a44b95e54cf99988105d0fe9a69645a0d2fcbfe2e60b1982d3ac9fdcff3
+actual_sha256="$(sha256sum "${frozen_ref}" | awk '{print $1}')"
+if [[ "${actual_sha256}" != "${expected_sha256}" ]]; then
+  printf 'frozen_reference_tampered expected=%s actual=%s\n' \
+    "${expected_sha256}" "${actual_sha256}" \
+    > /logs/verifier/failure-stage.txt
+  printf '0\n' > /logs/verifier/reward.txt
+  exit 0
+fi
+
+# Rebuild native extension
 set +e
 bash /tests/rebuild_for_verification.sh \
   > /logs/verifier/native-build.stdout.log \
@@ -37,27 +57,7 @@ if [[ ${build_status} -ne 0 ]]; then
   exit 0
 fi
 printf 'build_passed\n' > /logs/verifier/build-stage.txt
-correctness_rc=0
-performance_rc=0
+
+# Run trusted parent/worker verifier (writes reward.txt itself)
 cd /workspace/repo
-python3 -I /tests/verify_int8_quant.py --mode candidate --stage correctness \
-  > /logs/verifier/correctness.log 2>&1 || correctness_rc=$?
-if [[ ${correctness_rc} -eq 0 ]]; then
-  python3 -I /tests/verify_int8_quant.py --mode candidate --stage performance \
-    > /logs/verifier/performance.log 2>&1 || performance_rc=$?
-else
-  performance_rc=125
-  printf 'skipped: correctness failed\n' > /logs/verifier/performance.log
-fi
-cat /logs/verifier/correctness.log
-cat /logs/verifier/performance.log
-printf '{"build":0,"correctness":%d,"performance":%d}\n' \
-  "${correctness_rc}" "${performance_rc}" > /logs/verifier/stages.json
-if [[ ${correctness_rc} -eq 0 && ${performance_rc} -eq 0 ]]; then
-  printf '1\n' > /logs/verifier/reward.txt
-else
-  printf 'correctness=%s performance=%s\n' \
-    "${correctness_rc}" "${performance_rc}" \
-    > /logs/verifier/failure-stage.txt
-  printf '0\n' > /logs/verifier/reward.txt
-fi
+exec python3 -I /tests/verify_int8_quant.py > /logs/verifier/verification.log 2>&1

@@ -11,6 +11,12 @@
       "name": "wrong-public-operator-name",
       "patch": "wrong-public-operator-name.patch",
       "patch_sha256": "4cf19c622979bc8c7f76d2a593c5c646816aeb5995655403917bc74993113997"
+    },
+    {
+      "apply_after": "oracle",
+      "case": "baseline-degradation",
+      "expected_reward": 0,
+      "patch": "baseline-degradation.patch"
     }
   ],
   "schema_version": "ai_infra_bench_validation_cases.v1"

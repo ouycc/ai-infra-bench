@@ -123,6 +123,141 @@ RUN set -eu; \
     find . -type f -name '*.so' ! -name '_C*.so' -exec cp --no-clobber --parents '{}' /workspace/repo/vllm/ \;; \
     rm -rf /opt/vllm-donor-native
 
+# Install frozen Triton reference kernel for performance baseline.
+# Extracted from base commit before agent user is created and before /workspace/repo
+# is chowned to agent. The reference is root-owned and unwritable by agent (uid 1000).
+# SHA-256 is recorded and verified at image check time.
+RUN set -eu; \
+    mkdir -p /opt/ai-infra-bench/reference-int8; \
+    cat > /opt/ai-infra-bench/reference-int8/reference_int8_kernel.py <<'FROZEN_REFERENCE_EOF'
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+#
+# FROZEN TRITON REFERENCE for the INT8 per-token-group quantization task.
+#
+# This file is a byte-for-byte extraction of the ``_per_token_group_quant_int8``
+# Triton kernel and its ``per_token_group_quant_int8`` launcher from
+#   vllm/model_executor/layers/quantization/utils/int8_utils.py
+# at the task base commit 14bf19e39f601163265b7c7d58d972b8a83d8896.
+#
+# It is installed as root in a root-owned directory before /workspace/repo is
+# chowned to agent, so the agent (uid 1000) cannot modify it. It imports
+# triton/triton.language DIRECTLY from root-owned site-packages, NOT through
+# vllm.triton_utils (which lives in the agent-writable /workspace/repo tree).
+#
+# The kernel body below is verbatim from the base commit; only the import of
+# triton/tl is made direct. Do not edit: the verifier records this file's
+# SHA-256 and refuses to score if it changes.
+import torch
+import triton
+import triton.language as tl
+
+
+@triton.jit
+def _per_token_group_quant_int8(
+    # Pointers to inputs and output
+    y_ptr,
+    y_q_ptr,
+    y_s_ptr,
+    # Stride of input
+    y_stride,
+    # Columns of input
+    N,
+    # Avoid to divide zero
+    eps,
+    # Information for int8
+    int8_min,
+    int8_max,
+    # Meta-parameters
+    BLOCK: tl.constexpr,
+):
+    """A Triton-accelerated function to perform per-token-group
+    quantization on a tensor.
+
+    This function converts the tensor values into int8 values.
+    """
+    # Map the program id to the row of X and Y it should compute.
+    g_id = tl.program_id(0)
+    y_ptr += g_id * y_stride
+    y_q_ptr += g_id * y_stride
+    y_s_ptr += g_id
+
+    cols = tl.arange(0, BLOCK)  # N <= BLOCK
+    mask = cols < N
+
+    y = tl.load(y_ptr + cols, mask=mask, other=0.0).to(tl.float32)
+    # Quant
+    _absmax = tl.maximum(tl.max(tl.abs(y)), eps)
+    y_s = _absmax / int8_max
+    y_q = tl.clamp(y / y_s, int8_min, int8_max).to(y_q_ptr.dtype.element_ty)
+
+    tl.store(y_q_ptr + cols, y_q, mask=mask)
+    tl.store(y_s_ptr, y_s)
+
+
+def per_token_group_quant_int8(
+    x: torch.Tensor,
+    group_size: int,
+    eps: float = 1e-10,
+    dtype: torch.dtype = torch.int8,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Function to perform per-token-group quantization on an input tensor `x`.
+
+    It converts the tensor values into signed int8 values and returns the
+    quantized tensor along with the scaling factor used for quantization.
+
+    Args:
+        x: The input tensor with ndim >= 2.
+        group_size: The group size used for quantization.
+        eps: The minimum to avoid dividing zero.
+        dtype: The dype of output tensor. Note that only `torch.int8`
+            is supported for now.
+
+    Returns:
+        tuple[torch.Tensor, torch.Tensor]: The quantized tensor and the
+            scaling factor for quantization.
+    """
+    assert (x.shape[-1] % group_size == 0
+            ), "the last dimension of `x` cannot be divisible by `group_size`"
+    assert x.is_contiguous(), "`x` is not contiguous"
+
+    iinfo = torch.iinfo(dtype)
+    int8_max = iinfo.max
+    int8_min = iinfo.min
+
+    x_q = torch.empty_like(x, device=x.device, dtype=dtype)
+    M = x.numel() // group_size
+    N = group_size
+    x_s = torch.empty(
+        x.shape[:-1] + (x.shape[-1] // group_size, ),
+        device=x.device,
+        dtype=torch.float32,
+    )
+
+    BLOCK = triton.next_power_of_2(N)
+    # heuristics for number of warps
+    num_warps = min(max(BLOCK // 256, 1), 8)
+    num_stages = 1
+    _per_token_group_quant_int8[(M, )](
+        x,
+        x_q,
+        x_s,
+        group_size,
+        N,
+        eps,
+        int8_min=int8_min,
+        int8_max=int8_max,
+        BLOCK=BLOCK,
+        num_warps=num_warps,
+        num_stages=num_stages,
+    )
+
+    return x_q, x_s
+FROZEN_REFERENCE_EOF
+RUN chmod 444 /opt/ai-infra-bench/reference-int8/reference_int8_kernel.py; \
+    sha256sum /opt/ai-infra-bench/reference-int8/reference_int8_kernel.py \
+      > /opt/ai-infra-bench/reference-int8/reference_int8_kernel.py.sha256
+
 COPY --from=git_runtime /vllm-history/.git /workspace/repo/.git
 
 RUN set -eu; \
