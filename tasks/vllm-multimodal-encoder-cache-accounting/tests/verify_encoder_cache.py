@@ -13,18 +13,6 @@ import json
 import subprocess
 import sys
 import traceback
-from types import SimpleNamespace
-
-import torch
-
-from vllm.multimodal.inputs import MultiModalFeatureSpec, PlaceholderRange
-import vllm.multimodal.registry as registry_module
-from vllm.multimodal.registry import MultiModalRegistry
-from vllm.multimodal.profiling import MultiModalProfiler
-from vllm.v1.core.encoder_cache_manager import EncoderCacheManager
-from vllm.v1.core.sched.scheduler import Scheduler
-from vllm.v1.request import Request
-from vllm.v1.worker.gpu_model_runner import GPUModelRunner
 
 
 WORKER_CODE = r'''
