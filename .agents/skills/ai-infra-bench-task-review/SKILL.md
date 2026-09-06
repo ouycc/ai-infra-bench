@@ -63,6 +63,11 @@ user authorizes changes, validation, a commit, or a PR, also read
    complete boundary, preserve required downstream behavior, accept different
    correct implementations, and reject incomplete or hacked ones?
 
+   For performance tasks, apply the baseline-independence checks in
+   [Section 5.5](references/review-rubric.md#55-base-oracle-and-result-integrity),
+   including protection of the measurement path and a baseline-degradation
+   negative control for relative-performance scores.
+
 Before judging environment completeness or E2E depth, write the target semantic
 boundary in this form:
 

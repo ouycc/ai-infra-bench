@@ -274,6 +274,13 @@ Map every reward-affecting behavior and every collected case group to the task
 contract. Record parameterized dimensions and counts. Source-line mapping is
 optional and must not replace behavioral coverage.
 
+Reflection over method names, signatures, or object layouts is still an
+implementation constraint unless that interface is explicitly required by the
+task contract. Accepting several names does not establish behavioral
+independence. Check the observable behavior through the production boundary,
+including a correct alternative that changes the internal structure while
+preserving the promised behavior.
+
 Check both directions:
 
 - every promised behavior has coverage;
@@ -334,6 +341,37 @@ test when those semantics are outside the task.
 - Incorrect controls receive 0 and correct alternatives receive 1.
 - The verifier must not read control patches or compare a solution with the
   Oracle. It may distinguish implementations only through behavior.
+
+When the verifier executes candidate code, separate candidate execution from
+trusted scoring and writable reward artifacts. Candidate-controlled code must
+not be able to declare completion, write reward files, alter thresholds, or
+change the final aggregation path. Require independently checked completion
+and behavioral results for every required stage, and reject early-success
+termination. Read-only test files or a success marker emitted by a
+candidate-containing process do not by themselves establish scoring integrity.
+
+For performance tasks, trace the provenance and mutability of the reference
+implementation and the full measurement path. Pin the reference to the
+declared baseline revision or another explicitly justified reference. Candidate
+changes must not alter the baseline used for scoring, the thresholds, timing
+logic, or final aggregation. A reference imported from the candidate checkout
+is not an independent baseline. A read-only reference file alone is
+insufficient when candidate code can alter its execution or the trusted
+measurement process.
+
+Compare the reference and candidate under the declared, comparable hardware,
+inputs, warmup, synchronization, and timing protocol. For relative-performance
+scores, include a negative control that attempts to degrade only the reference
+while leaving candidate performance unchanged. The protected baseline must
+remain unaffected, or the verifier must reject the attempt; the attempt must
+not turn a below-threshold candidate into a passing one. Choose a control that
+actually exercises the score's baseline dependency, rather than an unrelated
+correctness failure.
+
+Report static baseline-mutation risks separately from demonstrated score
+inflation. Claim a demonstrated bypass only when the control reaches the
+actual grading entrypoint and changes the final reward; otherwise record the
+missing runtime evidence and any substitutions in a preliminary probe.
 
 ### 5.6 Gate 3 blockers
 
