@@ -5,6 +5,7 @@ set -euo pipefail
 : "${TARGET_PLATFORM:?TARGET_PLATFORM is required}"
 : "${PUBLISH_IMAGE:=false}"
 : "${GHCR_REPOSITORY:=ghcr.io/${GITHUB_REPOSITORY_OWNER}/ai-infra-bench-task-envs}"
+GHCR_REPOSITORY="${GHCR_REPOSITORY,,}"
 : "${HARBOR_JOBS_DIR:=${GITHUB_WORKSPACE:-$PWD}/harbor-jobs}"
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
