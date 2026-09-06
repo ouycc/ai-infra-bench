@@ -1,0 +1,17 @@
+{
+  "cases": [
+    {
+      "expected_reward": 1,
+      "name": "alternate-inline-nccl",
+      "patch": "alternate-inline-nccl.patch",
+      "patch_sha256": "701ffade8505e4faedad3249cbddb79d5541c6726124bbdaea2dd13c72a9770e"
+    },
+    {
+      "expected_reward": 0,
+      "name": "cpu-sync-object-collective",
+      "patch": "cpu-sync-object-collective.patch",
+      "patch_sha256": "3d5e505c532a43c4be145fa70e34f73dadedcfee38743c7dd8469d5340eabe82"
+    }
+  ],
+  "schema_version": "ai_infra_bench_validation_cases.v1"
+}

@@ -1,0 +1,341 @@
+{
+  "schema_version": "vllm_harbor_task_validation.v1",
+  "recorded_at": "2026-09-06T11:14:03+08:00",
+  "source": {
+    "task": "ai-infra-bench/vllm-async-pp-token-handoff",
+    "repository": "vllm-project/vllm",
+    "pull_request": "https://github.com/vllm-project/vllm/pull/32618",
+    "base_commit": "8ebf372e9d612a325f54aadf5c0c3c6588b6afa3",
+    "dependency_cutoff": "2026-01-28T17:36:56Z"
+  },
+  "image": {
+    "canonical_tag": "ai-infra-bench/vllm-pr-32618:remediate-20260904T173714Z",
+    "image_id": "sha256:788b520b34f30745bdfdd31a4f59ae68aeeee12c9bd70c0519d8d890ce301990",
+    "size_bytes": 10360448433,
+    "dockerfile_sha256": "dbb6f0c2a41d54ab6b8fe2c81c4504ad8e980becf512f4f70b04f934ca9b0e05",
+    "dependency_lock_sha256": "647f706918a48499b9ac2cf98d1875b910bf0d4e52dc4bddd6e03a9508585be5",
+    "dependency_lock_manifest_sha256": "0b225512500cc5da63cb4dece2d050283913b928a73753808e0b62e5f2808dfe"
+  },
+  "artifacts": {
+    "files": {
+      "instruction.md": {
+        "sha256": "64268007c5edc28b2b9888f4899914b13c7445b6e7e1302a07922520cea8cc6a"
+      },
+      "solution/oracle.patch": {
+        "sha256": "c35873d77329d7da9ba739b085a21a386a2c9ed1abd70c0aa0b686a3ff043860"
+      },
+      "solution/solve.sh": {
+        "sha256": "fcc259e7375224d93400b776de248e11f47c6c31a3b4af9752c53a9154cdd407"
+      },
+      "task.toml": {
+        "sha256": "72c768b3f1ad8cc046495fff4567945f2de71f4185328eced3f3e99831c43609"
+      },
+      "tests/fixtures/opt-125m/config.json": {
+        "sha256": "54162c9cd0377110df1859dfabebb106fc0988c8aadb88207ce1ee0d34985df6"
+      },
+      "tests/test.sh": {
+        "sha256": "390038f22dda9d739eb1957dd5849b3fb1a718f4ca4d18416fbe6069990a96ce"
+      },
+      "tests/verify_async_pp.py": {
+        "sha256": "6a6d6c2cc37bd5daeb4992baee1ccd6ba2c4139925e047e763f3fc96f23363d6"
+      },
+      "validation/ci-cases.json": {
+        "sha256": "6062c3476d02bfc61a3c1808f18bfe90188a927b0f64f4604a7f9a255550860b"
+      },
+      "validation/alternate-inline-nccl.patch": {
+        "sha256": "701ffade8505e4faedad3249cbddb79d5541c6726124bbdaea2dd13c72a9770e"
+      },
+      "validation/cpu-sync-object-collective.patch": {
+        "sha256": "3d5e505c532a43c4be145fa70e34f73dadedcfee38743c7dd8469d5340eabe82"
+      },
+      "environment/image-manifest.json": {
+        "sha256": "d03a24cc16290a8ab41ce4af60882ed2e8f8440808c3eca523d4fc7d9cb50cfa"
+      }
+    },
+    "task_toml_sha256": "72c768b3f1ad8cc046495fff4567945f2de71f4185328eced3f3e99831c43609",
+    "task_metadata_sha256": "72c768b3f1ad8cc046495fff4567945f2de71f4185328eced3f3e99831c43609",
+    "instruction_sha256": "64268007c5edc28b2b9888f4899914b13c7445b6e7e1302a07922520cea8cc6a",
+    "image_manifest_sha256": "d03a24cc16290a8ab41ce4af60882ed2e8f8440808c3eca523d4fc7d9cb50cfa",
+    "oracle_patch_sha256": "c35873d77329d7da9ba739b085a21a386a2c9ed1abd70c0aa0b686a3ff043860",
+    "solve_script_sha256": "fcc259e7375224d93400b776de248e11f47c6c31a3b4af9752c53a9154cdd407",
+    "test_script_sha256": "390038f22dda9d739eb1957dd5849b3fb1a718f4ca4d18416fbe6069990a96ce",
+    "ci_cases_sha256": "6062c3476d02bfc61a3c1808f18bfe90188a927b0f64f4604a7f9a255550860b"
+  },
+  "verifier_contract": {
+    "semantic_boundary": "async pipeline-parallel token handoff across PP ranks (NCCL device collective) -> tensor-dict transfer semantics -> decoded token correctness observable via reward",
+    "reward_source": "verifier reward.txt / Harbor eval mean; reward in {0,1}",
+    "marker": null,
+    "implementation_independence": "verifier runs from the read-only tests mount and scores the contract, not a memorized case; the independent challenge perturbs SEMANTIC boundaries to confirm Base fails and Oracle passes."
+  },
+  "real_lifecycle_boundary": {
+    "kind": "real AsyncScheduler pipeline-parallel token handoff across PP ranks over a device NCCL collective with an interleaved discard mask; GPU model execution substituted by verifier-supplied ModelRunnerOutput, scheduler/collective/handoff lifecycle real",
+    "physical_gpu_used_in_repeated_runs": false
+  },
+  "repeated_runs": [
+    {
+      "case": "base",
+      "rounds": 5,
+      "rewards": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "all_zero": true,
+      "total_errored_trials": 0,
+      "runs": [
+        {
+          "round": "s401",
+          "job_id": "8d82fbba-d987-4b6d-a983-c3340c9aee20",
+          "trial_id": "485c86ae-d295-49f3-aac7-1017e16a0eb5",
+          "trial_name": "base__cfXAFww",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 138.1,
+          "started_at": "2026-09-06T01:15:48.981022",
+          "finished_at": "2026-09-06T01:18:07.058487"
+        },
+        {
+          "round": "s402",
+          "job_id": "e4911e9c-d849-4774-bbb1-1cbee93e4523",
+          "trial_id": "4d5558e1-7995-4dd1-9172-061bf7335846",
+          "trial_name": "base__mSvMFBX",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 138.1,
+          "started_at": "2026-09-06T01:27:19.297376",
+          "finished_at": "2026-09-06T01:29:37.432461"
+        },
+        {
+          "round": "s403",
+          "job_id": "0e40ab97-8496-4bdb-a33a-f5904097c9e1",
+          "trial_id": "8897bed0-5b11-4edf-bac2-54938530750d",
+          "trial_name": "base__4zog7Lg",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 138.4,
+          "started_at": "2026-09-06T01:29:49.016656",
+          "finished_at": "2026-09-06T01:32:07.450388"
+        },
+        {
+          "round": "s404",
+          "job_id": "dbc016a8-7c65-4c6a-a044-be15f4d3e6ba",
+          "trial_id": "568c37f8-d9d5-4d30-9884-4ce063f195e8",
+          "trial_name": "base__nboMJDs",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 137.4,
+          "started_at": "2026-09-06T01:32:25.867079",
+          "finished_at": "2026-09-06T01:34:43.298310"
+        },
+        {
+          "round": "s405",
+          "job_id": "4770cde2-6b5d-466b-a165-60b0ce93638c",
+          "trial_id": "fcf73b71-fe92-4b73-81b5-b6edcbf3c992",
+          "trial_name": "base__iuGSocs",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 139.5,
+          "started_at": "2026-09-06T01:34:54.178270",
+          "finished_at": "2026-09-06T01:37:13.697999"
+        }
+      ]
+    },
+    {
+      "case": "oracle",
+      "rounds": 5,
+      "rewards": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "all_one": true,
+      "total_errored_trials": 0,
+      "runs": [
+        {
+          "round": "s401",
+          "job_id": "6c9e9410-e060-4c7d-9851-971694af755f",
+          "trial_id": "5d3ebe44-6bb4-4fb0-b145-b398b37a9bf1",
+          "trial_name": "oracle__kdQhGH6",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 140.9,
+          "started_at": "2026-09-06T01:18:14.063568",
+          "finished_at": "2026-09-06T01:20:34.979774"
+        },
+        {
+          "round": "s402",
+          "job_id": "900e9911-f129-49ce-b696-2e1815a0f1be",
+          "trial_id": "1ef6f1a4-7b17-4e64-ab58-eb7ed282aaee",
+          "trial_name": "oracle__aHKBtAX",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 138.9,
+          "started_at": "2026-09-06T01:37:25.419239",
+          "finished_at": "2026-09-06T01:39:44.317879"
+        },
+        {
+          "round": "s403",
+          "job_id": "15872752-28a4-4430-8db8-5f8c00c1015b",
+          "trial_id": "990ae85d-36f2-4d2c-bb99-fd29c6c96665",
+          "trial_name": "oracle__BjiSMcP",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 139.0,
+          "started_at": "2026-09-06T01:39:51.509138",
+          "finished_at": "2026-09-06T01:42:10.488356"
+        },
+        {
+          "round": "s404",
+          "job_id": "2699e30f-f903-4a10-9c7e-b4514ada45ee",
+          "trial_id": "b74699e4-2d2f-4bbd-8d74-cdc648573670",
+          "trial_name": "oracle__4fAoH4J",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 137.9,
+          "started_at": "2026-09-06T01:42:20.598027",
+          "finished_at": "2026-09-06T01:44:38.491737"
+        },
+        {
+          "round": "s405",
+          "job_id": "3a3b5f9d-2bba-4679-90f5-8ed294efda00",
+          "trial_id": "c4e0ddbc-390f-4d40-a30f-27edac42392e",
+          "trial_name": "oracle__q5VDhSQ",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+          "runtime_seconds": 137.4,
+          "started_at": "2026-09-06T01:44:44.410139",
+          "finished_at": "2026-09-06T01:47:01.785376"
+        }
+      ]
+    }
+  ],
+  "alternative_implementation_run": {
+    "round": "s401",
+    "job_id": "a1393db0-d35d-4b53-84dd-d06754367e5b",
+    "trial_id": "88bb1cef-4016-4275-902b-7363e4725a2b",
+    "trial_name": "alternate-inline-nccl__aAEKLfP",
+    "reward": 1,
+    "n_completed_trials": 1,
+    "n_errored_trials": 0,
+    "task_checksum": "fae03d4df83ee7bddfad7aee47ed69ed9aee11189df85ca065289e86dc8045bb",
+    "runtime_seconds": 142.8,
+    "started_at": "2026-09-06T01:20:43.230547",
+    "finished_at": "2026-09-06T01:23:06.072232",
+    "case": "alternate-inline-nccl",
+    "patch": "alternate-inline-nccl.patch",
+    "patch_sha256": "701ffade8505e4faedad3249cbddb79d5541c6726124bbdaea2dd13c72a9770e"
+  },
+  "adversarial_runs": [
+    {
+      "round": "s401",
+      "job_id": "abb33b36-c5bd-43a3-a68d-01ad777c111c",
+      "trial_id": "04336149-7e71-4bbf-86e0-77172b58d377",
+      "trial_name": "cpu-sync-object-collective__mBAbQxd",
+      "reward": 0,
+      "n_completed_trials": 1,
+      "n_errored_trials": 0,
+      "task_checksum": "ace1958e621476f97cc5dfe60c77131d4505e895fa675fd155c0c713575a9878",
+      "runtime_seconds": 140.0,
+      "started_at": "2026-09-06T01:23:18.253375",
+      "finished_at": "2026-09-06T01:25:38.255035",
+      "case": "cpu-sync-object-collective",
+      "patch": "cpu-sync-object-collective.patch",
+      "patch_sha256": "3d5e505c532a43c4be145fa70e34f73dadedcfee38743c7dd8469d5340eabe82"
+    }
+  ],
+  "challenge": {
+    "oracle": {
+      "marker": "CHALLENGE_TOKEN_HANDOFF=PASS",
+      "marker_count": 1,
+      "expected_marker": "CHALLENGE_TOKEN_HANDOFF=PASS",
+      "challenge_exit": 0,
+      "docker_exit": 0,
+      "verdict": "OK",
+      "canary": "CANARY_OK: sees 2 GPU(s)"
+    },
+    "alternate": {
+      "marker": "CHALLENGE_TOKEN_HANDOFF=PASS",
+      "marker_count": 1,
+      "expected_marker": "CHALLENGE_TOKEN_HANDOFF=PASS",
+      "challenge_exit": 0,
+      "docker_exit": 0,
+      "verdict": "OK",
+      "canary": "CANARY_OK: sees 2 GPU(s)"
+    },
+    "control": {
+      "marker": "CHALLENGE_TOKEN_HANDOFF=FAIL",
+      "marker_count": 1,
+      "expected_marker": "CHALLENGE_TOKEN_HANDOFF=FAIL",
+      "challenge_exit": 1,
+      "docker_exit": 0,
+      "verdict": "OK",
+      "canary": "CANARY_OK: sees 2 GPU(s)"
+    }
+  },
+  "harbor": {
+    "version": "0.22.0",
+    "run_root": "/data/yinchen/vllm-pr8-controls/20260905T151902Z-stage4-dynamic",
+    "round": "oracle--round-s405",
+    "job_id": "3a3b5f9d-2bba-4679-90f5-8ed294efda00",
+    "trial_id": "c4e0ddbc-390f-4d40-a30f-27edac42392e",
+    "trial_name": "oracle__q5VDhSQ",
+    "agent": "oracle",
+    "environment": "gpu2",
+    "n_completed_trials": 1,
+    "n_errored_trials": 0,
+    "reward": 1,
+    "runtime_seconds": 137.4,
+    "started_at": "2026-09-06T01:44:44.410139",
+    "finished_at": "2026-09-06T01:47:01.785376",
+    "input_task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+    "task_checksum": "02f0c3b6bed97d58a8210b40312164769212513fc2ee6738496c6cb182995033",
+    "canonical_image_retained_after_run": true,
+    "final_selection_note": "oracle--round-s405 is the final canonical Harbor Oracle trial for this task, taken from run-root /data/yinchen/vllm-pr8-controls/20260905T151902Z-stage4-dynamic. It is an independent Harbor job/trial (completed=1, errored=0, reward=1)."
+  },
+  "upstream_regression": {
+    "status": "not-run-in-this-validation",
+    "note": "No upstream-regression trial was executed in these run-roots; this field is recorded as not-run rather than fabricated. Base/Oracle discrimination, the alternate acceptance, the adversarial controls, and the independent 3-state challenge provide the correctness evidence."
+  },
+  "provenance_gates": {
+    "image_identity": {
+      "manifest_image_id": "sha256:788b520b34f30745bdfdd31a4f59ae68aeeee12c9bd70c0519d8d890ce301990",
+      "task_toml_image_digest": "sha256:788b520b34f30745bdfdd31a4f59ae68aeeee12c9bd70c0519d8d890ce301990",
+      "match": true
+    },
+    "freeze_identity": {
+      "source": "freeze.stage4-current-20260905T133915Z",
+      "executable_snapshot_match": true
+    },
+    "frozen_run_challenge_sha256": "3253b515723e3006e2fa883158ed6e11638f2824091ae7ed75088d659d14687c",
+    "independent_challenge_three_state": {
+      "oracle": "OK",
+      "alternate": "OK",
+      "control": "OK"
+    }
+  },
+  "_self_reference_note": "This file is validation/e2e-evidence.json. Writing it changes the task directory checksum but does NOT change the executable task snapshot (task.toml, instruction, environment, solution, tests, ci-cases, challenge, patches are untouched). The Harbor input_task_checksum recorded above refers to the executable task snapshot as it stood when the Harbor trial ran, i.e. before this evidence-only write."
+}
