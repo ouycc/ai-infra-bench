@@ -9,11 +9,12 @@
   "dependency_lock_sha256": "f6b15ebe7c5bdcf2449127d5ba223dfa44043b6803a45ff29256007ab0685985",
   "dockerfile_sha256": "458445dd431931c2e85eda13dd725f2d804c4a2e541a86381bc7a8ba3debcfe6",
   "image_check": "passed",
-  "image_id": "sha256:7f384099c16e399c1d0675753aa6ac64b3ff408e6089dfcc1dbd5be27e541841",
+  "image_id": "64e2152ddc26ce6d80668da9bbbb4c04a8b87c58dea9508dc0ebb15b1ca02121",
   "image_tag": "ai-infra-bench/vllm-pr-30475:v1.2.1-remediate-20260904T165410Z",
   "repo_digests": [],
   "schema_version": "vllm_harbor_image.v1",
   "size_bytes": 15924622802,
   "status": "built",
-  "task": "ai-infra-bench/vllm-multimodal-encoder-cache-accounting"
+  "task": "ai-infra-bench/vllm-multimodal-encoder-cache-accounting",
+  "canonical_alias": "vllm-encoder-local:verifier-fix-20260906T140800Z"
 }
