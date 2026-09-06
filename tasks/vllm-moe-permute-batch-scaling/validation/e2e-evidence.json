@@ -1,0 +1,383 @@
+{
+  "schema_version": "vllm_harbor_task_validation.v1",
+  "recorded_at": "2026-09-06T11:14:03+08:00",
+  "source": {
+    "task": "ai-infra-bench/vllm-moe-permute-batch-scaling",
+    "repository": "vllm-project/vllm",
+    "pull_request": "https://github.com/vllm-project/vllm/pull/32892",
+    "base_commit": "dc917cceb877dfd13f98c538c4c96158047d98bd",
+    "dependency_cutoff": "2026-01-22T23:21:35Z"
+  },
+  "image": {
+    "canonical_tag": "ai-infra-bench/vllm-pr-32892:remediate-20260905T012116Z",
+    "image_id": "sha256:6698c86f56f02fa0c16acb4da43776da59e9bf72abd276ce8cb58863d973e900",
+    "size_bytes": 9763672074,
+    "dockerfile_sha256": "e6a8f9697bb1d93158118026cd8803244dc3cc9590f6c0cc4beced287f1d2cb6",
+    "dependency_lock_sha256": "36bc898bbcd21913ce607e27a8db10794d2ff39523bbab6548df55b50d13e54b",
+    "dependency_lock_manifest_sha256": "1c10697cc860de3a7245a6c3a6181694fb3153047c48a1f365a4bd0cfb9797d9"
+  },
+  "artifacts": {
+    "files": {
+      "instruction.md": {
+        "sha256": "13a474fee801ed44c24a07f39880e793b1b70a9fd4a29cfe94474d5aa7d26a3c"
+      },
+      "solution/oracle.patch": {
+        "sha256": "cda8f9848bacbdeaf77807554c64708db787ae1cee816fcd0ed011e4252b2775"
+      },
+      "solution/solve.sh": {
+        "sha256": "577a1de2977b43ce7f2898a06907c4d54d32323752080943140981c04a13503f"
+      },
+      "task.toml": {
+        "sha256": "d919874746612abb2e0480d2d02a9e362989b7913e6a37d76b1efe0916ca5e52"
+      },
+      "tests/rebuild_for_verification.sh": {
+        "sha256": "cc3109a8ea7a05418c87dee5e406bd932eaf0caba3a57c605929f493336d20f1"
+      },
+      "tests/test.sh": {
+        "sha256": "cd752f3613b525c454a91845071c1a48663afbc46537d2478434360d4a4e58f7"
+      },
+      "tests/verify_moe_permute.py": {
+        "sha256": "848d892a4f2dfa4b9e8edfeda7b801502dd884bf81c9f47d9119f43fab76c9a7"
+      },
+      "validation/ci-cases.json": {
+        "sha256": "a545d171f0ceceffe114649efaddaa81b18faa140aa28b291cb5132be9b602c2"
+      },
+      "validation/alternate-cuda-scaling.patch": {
+        "sha256": "b6694f7b494d0fd218dff8a8a5da6dac41866ae67e6d26c7057712d3b555656b"
+      },
+      "validation/diagnosis-only-linear-scan.patch": {
+        "sha256": "70503f15ec591fb16c7efec5e8c4105d78bcaea008d0c95fde63021d9aea552f"
+      },
+      "validation/special-case-batch-sizes.patch": {
+        "sha256": "da7d8201a32d2a0b612d3a745e7cb2b9316966268c463133fa9be1100dc97d9b"
+      },
+      "environment/image-manifest.json": {
+        "sha256": "496dc8b986485f5ab49e390d9c1807b48dac83e475335f9fb2f010fce6f7daad"
+      }
+    },
+    "task_toml_sha256": "d919874746612abb2e0480d2d02a9e362989b7913e6a37d76b1efe0916ca5e52",
+    "task_metadata_sha256": "d919874746612abb2e0480d2d02a9e362989b7913e6a37d76b1efe0916ca5e52",
+    "instruction_sha256": "13a474fee801ed44c24a07f39880e793b1b70a9fd4a29cfe94474d5aa7d26a3c",
+    "image_manifest_sha256": "496dc8b986485f5ab49e390d9c1807b48dac83e475335f9fb2f010fce6f7daad",
+    "oracle_patch_sha256": "cda8f9848bacbdeaf77807554c64708db787ae1cee816fcd0ed011e4252b2775",
+    "solve_script_sha256": "577a1de2977b43ce7f2898a06907c4d54d32323752080943140981c04a13503f",
+    "test_script_sha256": "cd752f3613b525c454a91845071c1a48663afbc46537d2478434360d4a4e58f7",
+    "ci_cases_sha256": "a545d171f0ceceffe114649efaddaa81b18faa140aa28b291cb5132be9b602c2"
+  },
+  "verifier_contract": {
+    "semantic_boundary": "MoE permute/unpermute batch scaling on device (CUDA) -> per-expert row scaling + alignment/m_indices contract -> gathered output correctness observable via reward",
+    "reward_source": "verifier reward.txt / Harbor eval mean; reward in {0,1}",
+    "marker": null,
+    "implementation_independence": "verifier runs from the read-only tests mount and scores the contract, not a memorized case; the independent challenge perturbs SEMANTIC boundaries to confirm Base fails and Oracle passes."
+  },
+  "real_lifecycle_boundary": {
+    "kind": "real moe_permute/moe_unpermute native CUDA operators over aligned (128) and unaligned (None) contracts and a fresh non-power-of-two large batch (3000); operator, routing map, offsets, and payload lifecycle real on GPU",
+    "physical_gpu_used_in_repeated_runs": true
+  },
+  "repeated_runs": [
+    {
+      "case": "base",
+      "rounds": 5,
+      "rewards": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "all_zero": true,
+      "total_errored_trials": 0,
+      "runs": [
+        {
+          "round": "s401",
+          "job_id": "0e4c36e1-f549-4672-883f-967707c3d814",
+          "trial_id": "61edf096-36b5-4373-a0eb-0f3a1f1b1b22",
+          "trial_name": "base__RdGfeVP",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 54.2,
+          "started_at": "2026-09-06T01:15:48.981141",
+          "finished_at": "2026-09-06T01:16:43.165712",
+          "source_run_root": "/data/yinchen/vllm-pr8-controls/20260905T151902Z-stage4-dynamic"
+        },
+        {
+          "round": "s402",
+          "job_id": "5662bff4-1266-4046-8e41-aef17e6d3aee",
+          "trial_id": "45bad40f-1512-44fd-8b44-8408194b59c7",
+          "trial_name": "base__nLCiJbo",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 53.6,
+          "started_at": "2026-09-06T02:14:28.123463",
+          "finished_at": "2026-09-06T02:15:21.716317"
+        },
+        {
+          "round": "s403",
+          "job_id": "0482d3b1-f594-4d44-8f4d-57c53490c778",
+          "trial_id": "944bef1c-a8f6-4655-9645-c73ac362b9c5",
+          "trial_name": "base__TGfBZ3j",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 52.8,
+          "started_at": "2026-09-06T02:15:27.801558",
+          "finished_at": "2026-09-06T02:16:20.595346"
+        },
+        {
+          "round": "s404",
+          "job_id": "6e081f52-2dcf-4fc5-aab7-7eae789e054d",
+          "trial_id": "e679affe-c10c-4ec5-ab56-44fda4c7d7e3",
+          "trial_name": "base__vNutp2E",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 53.8,
+          "started_at": "2026-09-06T02:16:37.743020",
+          "finished_at": "2026-09-06T02:17:31.572060"
+        },
+        {
+          "round": "s405",
+          "job_id": "2df23328-a110-4618-95e5-49fe26f20748",
+          "trial_id": "1478bb5f-f6e2-456d-82ef-6bfd273c90a0",
+          "trial_name": "base__YGGraxf",
+          "reward": 0,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 53.4,
+          "started_at": "2026-09-06T02:17:42.850312",
+          "finished_at": "2026-09-06T02:18:36.277063"
+        }
+      ]
+    },
+    {
+      "case": "oracle",
+      "rounds": 5,
+      "rewards": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "all_one": true,
+      "total_errored_trials": 0,
+      "runs": [
+        {
+          "round": "s401",
+          "job_id": "6ec28269-51ed-43fe-b84a-9d475a765bf5",
+          "trial_id": "e40edd35-c2b9-4e46-85ab-879849aa5512",
+          "trial_name": "oracle__qmyG2wW",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 151.7,
+          "started_at": "2026-09-06T01:16:50.155982",
+          "finished_at": "2026-09-06T01:19:21.860531",
+          "source_run_root": "/data/yinchen/vllm-pr8-controls/20260905T151902Z-stage4-dynamic"
+        },
+        {
+          "round": "s402",
+          "job_id": "97ad524f-4a93-47da-9863-ead2f00f6717",
+          "trial_id": "fb646c3b-a409-4457-88f3-c02937f03d35",
+          "trial_name": "oracle__pTwsbBE",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 145.1,
+          "started_at": "2026-09-06T02:18:46.570188",
+          "finished_at": "2026-09-06T02:21:11.718175"
+        },
+        {
+          "round": "s403",
+          "job_id": "4e662a6b-ba47-42ed-8585-879f4ba82cdc",
+          "trial_id": "415b0e5e-6b9d-4578-aa5e-e9d6e7900d14",
+          "trial_name": "oracle__3ZjhKfU",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 155.7,
+          "started_at": "2026-09-06T02:21:27.488704",
+          "finished_at": "2026-09-06T02:24:03.146718"
+        },
+        {
+          "round": "s404",
+          "job_id": "3750635f-a216-43e4-a461-00386fb17383",
+          "trial_id": "74207807-3ca8-43e5-8705-17f4a9579882",
+          "trial_name": "oracle__JhPMpU7",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 147.4,
+          "started_at": "2026-09-06T02:24:09.702004",
+          "finished_at": "2026-09-06T02:26:37.074505"
+        },
+        {
+          "round": "s405",
+          "job_id": "f35a4409-72d0-43ad-9425-5e278cca866b",
+          "trial_id": "6e701650-e721-4d36-af38-3d5724fbc35f",
+          "trial_name": "oracle__6o8zaDB",
+          "reward": 1,
+          "n_completed_trials": 1,
+          "n_errored_trials": 0,
+          "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+          "runtime_seconds": 145.3,
+          "started_at": "2026-09-06T02:26:48.142097",
+          "finished_at": "2026-09-06T02:29:13.433518"
+        }
+      ]
+    }
+  ],
+  "alternative_implementation_run": {
+    "round": "s401",
+    "job_id": "c91d0931-5a14-4a92-b44e-8d32b0f8ba94",
+    "trial_id": "f2a0e528-8845-4453-a895-caf2e2ae051f",
+    "trial_name": "alternate-cuda-scaling__L2HQg7T",
+    "reward": 1,
+    "n_completed_trials": 1,
+    "n_errored_trials": 0,
+    "task_checksum": "0ffd8aab5fdf922095ef128031e0943f7c492566110d6d67d55229d5510b9226",
+    "runtime_seconds": 138.7,
+    "started_at": "2026-09-06T01:19:30.407108",
+    "finished_at": "2026-09-06T01:21:49.139054",
+    "source_run_root": "/data/yinchen/vllm-pr8-controls/20260905T151902Z-stage4-dynamic",
+    "case": "alternate-cuda-scaling",
+    "patch": "alternate-cuda-scaling.patch",
+    "patch_sha256": "b6694f7b494d0fd218dff8a8a5da6dac41866ae67e6d26c7057712d3b555656b"
+  },
+  "adversarial_runs": [
+    {
+      "round": "s401",
+      "job_id": "9cc02661-c3e4-4811-9c0a-ad0c8119935a",
+      "trial_id": "4775fc8b-7392-4138-813e-3b681a6b7f94",
+      "trial_name": "diagnosis-only-linear-scan__kYu49jg",
+      "reward": 0,
+      "n_completed_trials": 1,
+      "n_errored_trials": 0,
+      "task_checksum": "1dc3e9502153991f5f4b02f715e357fc3e3cb55b64d054d224adafa5db64dba7",
+      "runtime_seconds": 142.8,
+      "started_at": "2026-09-06T01:21:56.338215",
+      "finished_at": "2026-09-06T01:24:19.113709",
+      "source_run_root": "/data/yinchen/vllm-pr8-controls/20260905T151902Z-stage4-dynamic",
+      "case": "diagnosis-only-linear-scan",
+      "patch": "diagnosis-only-linear-scan.patch",
+      "patch_sha256": "70503f15ec591fb16c7efec5e8c4105d78bcaea008d0c95fde63021d9aea552f"
+    },
+    {
+      "round": "s401",
+      "job_id": "d5d52fbb-1303-4e28-ae08-fa34a288e1c7",
+      "trial_id": "93ea064c-7634-4ed7-947f-e7132dd13b8b",
+      "trial_name": "special-case-batch-sizes__QWfjjMM",
+      "reward": 0,
+      "n_completed_trials": 1,
+      "n_errored_trials": 0,
+      "task_checksum": "ac418db428a7b844ff2a4526da95e308184eb6205c05e90e91b6000e1c61a5af",
+      "runtime_seconds": 233.1,
+      "started_at": "2026-09-06T01:24:25.096531",
+      "finished_at": "2026-09-06T01:28:18.232695",
+      "source_run_root": "/data/yinchen/vllm-pr8-controls/20260905T151902Z-stage4-dynamic",
+      "case": "special-case-batch-sizes",
+      "patch": "special-case-batch-sizes.patch",
+      "patch_sha256": "da7d8201a32d2a0b612d3a745e7cb2b9316966268c463133fa9be1100dc97d9b",
+      "apply_after": "oracle",
+      "note": "explicit challenge control (CONTROL_PATCH_NAME); applied after solution/oracle.patch"
+    }
+  ],
+  "challenge": {
+    "oracle": {
+      "marker": "CHALLENGE_MOE_PERMUTE=PASS",
+      "marker_count": 1,
+      "expected_marker": "CHALLENGE_MOE_PERMUTE=PASS",
+      "challenge_exit": 0,
+      "docker_exit": 0,
+      "verdict": "OK",
+      "canary": "CANARY_OK: sees 1 GPU(s)",
+      "rebuild_exit": 0
+    },
+    "alternate": {
+      "marker": "CHALLENGE_MOE_PERMUTE=PASS",
+      "marker_count": 1,
+      "expected_marker": "CHALLENGE_MOE_PERMUTE=PASS",
+      "challenge_exit": 0,
+      "docker_exit": 0,
+      "verdict": "OK",
+      "canary": "CANARY_OK: sees 1 GPU(s)",
+      "rebuild_exit": 0
+    },
+    "control": {
+      "marker": "CHALLENGE_MOE_PERMUTE=FAIL",
+      "marker_count": 1,
+      "expected_marker": "CHALLENGE_MOE_PERMUTE=FAIL",
+      "challenge_exit": 1,
+      "docker_exit": 0,
+      "verdict": "OK",
+      "canary": "CANARY_OK: sees 1 GPU(s)",
+      "rebuild_exit": 0
+    },
+    "control_selection": {
+      "mechanism": "orchestration-layer explicit control selection",
+      "control_patch_name": "special-case-batch-sizes.patch",
+      "apply_after": "oracle",
+      "reason": "moe-permute declares two expected_reward=0 ci-cases (diagnosis-only-linear-scan and special-case-batch-sizes); the frozen run_challenge.sh single-reward=0 resolver cannot disambiguate, so run_challenge_explicit.sh selects the control patch via CONTROL_PATCH_NAME. The verdict logic is byte-identical to the frozen runner."
+    }
+  },
+  "harbor": {
+    "version": "0.22.0",
+    "run_root": "/data/yinchen/vllm-pr8-controls/20260905T180958Z-moe-continuation",
+    "round": "oracle--round-s405",
+    "job_id": "f35a4409-72d0-43ad-9425-5e278cca866b",
+    "trial_id": "6e701650-e721-4d36-af38-3d5724fbc35f",
+    "trial_name": "oracle__6o8zaDB",
+    "agent": "oracle",
+    "environment": "gpu1",
+    "n_completed_trials": 1,
+    "n_errored_trials": 0,
+    "reward": 1,
+    "runtime_seconds": 145.3,
+    "started_at": "2026-09-06T02:26:48.142097",
+    "finished_at": "2026-09-06T02:29:13.433518",
+    "input_task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+    "task_checksum": "0d20bd281386d4691aafd744cc77637ba2c22f37efee08a4e23a4a60f4cfd032",
+    "canonical_image_retained_after_run": true,
+    "final_selection_note": "oracle--round-s405 is the final canonical Harbor Oracle trial for this task, taken from run-root /data/yinchen/vllm-pr8-controls/20260905T180958Z-moe-continuation. It is an independent Harbor job/trial (completed=1, errored=0, reward=1).",
+    "gpu_uuid": "GPU-a6a45da0-8978-3ea7-4fa0-1786ea9f3329"
+  },
+  "upstream_regression": {
+    "status": "not-run-in-this-validation",
+    "note": "No upstream-regression trial was executed in these run-roots; this field is recorded as not-run rather than fabricated. Base/Oracle discrimination, the alternate acceptance, the adversarial controls, and the independent 3-state challenge provide the correctness evidence."
+  },
+  "provenance_gates": {
+    "image_identity": {
+      "manifest_image_id": "sha256:6698c86f56f02fa0c16acb4da43776da59e9bf72abd276ce8cb58863d973e900",
+      "task_toml_image_digest": "sha256:6698c86f56f02fa0c16acb4da43776da59e9bf72abd276ce8cb58863d973e900",
+      "match": true
+    },
+    "freeze_identity": {
+      "source": "freeze.stage4-current-20260905T133915Z",
+      "executable_snapshot_match": true
+    },
+    "frozen_run_challenge_sha256": "3253b515723e3006e2fa883158ed6e11638f2824091ae7ed75088d659d14687c",
+    "independent_challenge_three_state": {
+      "oracle": "OK",
+      "alternate": "OK",
+      "control": "OK"
+    },
+    "rebuild_exit": {
+      "oracle": 0,
+      "alternate": 0,
+      "control": 0,
+      "all_zero": true
+    }
+  },
+  "_self_reference_note": "This file is validation/e2e-evidence.json. Writing it changes the task directory checksum but does NOT change the executable task snapshot (task.toml, instruction, environment, solution, tests, ci-cases, challenge, patches are untouched). The Harbor input_task_checksum recorded above refers to the executable task snapshot as it stood when the Harbor trial ran, i.e. before this evidence-only write."
+}

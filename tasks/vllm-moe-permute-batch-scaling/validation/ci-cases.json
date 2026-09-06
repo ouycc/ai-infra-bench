@@ -1,0 +1,24 @@
+{
+  "cases": [
+    {
+      "expected_reward": 1,
+      "name": "alternate-cuda-scaling",
+      "patch": "alternate-cuda-scaling.patch",
+      "patch_sha256": "b6694f7b494d0fd218dff8a8a5da6dac41866ae67e6d26c7057712d3b555656b"
+    },
+    {
+      "expected_reward": 0,
+      "name": "diagnosis-only-linear-scan",
+      "patch": "diagnosis-only-linear-scan.patch",
+      "patch_sha256": "70503f15ec591fb16c7efec5e8c4105d78bcaea008d0c95fde63021d9aea552f"
+    },
+    {
+      "apply_after": "oracle",
+      "expected_reward": 0,
+      "name": "special-case-batch-sizes",
+      "patch": "special-case-batch-sizes.patch",
+      "patch_sha256": "da7d8201a32d2a0b612d3a745e7cb2b9316966268c463133fa9be1100dc97d9b"
+    }
+  ],
+  "schema_version": "ai_infra_bench_validation_cases.v1"
+}
