@@ -1,8 +1,0 @@
-*
-!Dockerfile
-!reproduce_baseline.py
-!runtime_smoke.py
-!public_tests/
-!public_tests/**
-!lock/
-!lock/**

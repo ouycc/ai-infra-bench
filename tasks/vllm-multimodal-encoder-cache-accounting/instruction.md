@@ -20,5 +20,6 @@ Work in `/app` and keep the production request, scheduler, profiling,
 cache-manager, multimodal helper, and model-runner gather/slice paths
 consistent. Update the affected callers rather than adding a one-off case for
 the example. The internal representation, including whether an embedding count
-is a property or a method, is up to you. Run the public checks with
-`python3 -m pytest /opt/bench/public_tests -q`.
+is a property or a method, is up to you. Validate against the production
+`PlaceholderRange`, `EncoderCacheManager`, and scheduler paths directly,
+covering masked, mask-free, all-false, empty, and multi-item placeholders.

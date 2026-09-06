@@ -1,7 +1,7 @@
 schema_version = "1.4"
 
 [task]
-name = "ai-infra-bench/vllm-pr-30475"
+name = "ai-infra-bench/vllm-multimodal-encoder-cache-accounting"
 version = "1.2.1"
 description = "Account for multimodal encoder-cache usage in embedding rows, not placeholder tokens."
 authors = [{ name = "AI Infra Bench Curators" }]
@@ -13,6 +13,7 @@ track = "representative"
 source_ids = ["vllm__pr__30475"]
 repository = "vllm-project/vllm"
 base_commit = "676db55eecf8b6d9ec38ea243cf6f35ea8378ec6"
+image_digest = "sha256:7f384099c16e399c1d0675753aa6ac64b3ff408e6089dfcc1dbd5be27e541841"
 dependency_cutoff = "2025-12-16T09:37:15Z"
 oracle_commit = "f5f51e5931ffd99afe69696b60765b88d3eb13f2"
 workload_type = "refactor"
@@ -24,7 +25,7 @@ environment_profile = "cpu"
 publication_state = "candidate-static-review"
 
 [agent]
-timeout_sec = 5400.0
+timeout_sec = 36000.0
 user = "agent"
 network_mode = "no-network"
 

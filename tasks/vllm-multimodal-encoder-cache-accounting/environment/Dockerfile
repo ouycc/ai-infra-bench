@@ -148,9 +148,6 @@ RUN set -eu; \
     cd /app; \
     test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
-COPY public_tests /opt/bench/public_tests
-RUN chmod -R a-w /opt/bench/public_tests
-
 RUN groupadd --gid 10001 agent \
     && useradd --uid 10001 --gid 10001 --create-home --home-dir /home/agent agent \
     && chown -R agent:agent /app /home/agent \

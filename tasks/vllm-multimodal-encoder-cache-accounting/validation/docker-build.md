@@ -7,13 +7,16 @@
 
 ## Target
 
-- Image tag (versioned): `ai-infra-bench/vllm-pr-30475:v1.2.1-20260903T161811Z`
+- Image tag (versioned): `ai-infra-bench/vllm-pr-30475:v1.2.1-remediate-20260904T165410Z`
 - Canonical candidate tag:
   `ghcr.io/ouycc/ai-infra-bench-task-envs:vllm-pr-30475-ea49c23e150d3c530749d845b4ad298694b05a2788648d54d921082a27d950c3`
   where the suffix is the `<env-key>` from
   `task_ci.py env-key --task vllm-pr-30475 --platform linux/amd64`.
-- Image ID: `sha256:3136c80d465ea0b7ad8f5c05238892e2ce1709ab2193a7b1ccee64ac9ddeccc9`
-- Base image: `vllm/vllm-openai@sha256:47a9896f86818fea323b2d38082758c62d9a0155d6fe6c4dbd7d735c556f680a`
+- Image ID: `sha256:7f384099c16e399c1d0675753aa6ac64b3ff408e6089dfcc1dbd5be27e541841`
+- Base image: `vllm/vllm-openai:v0.11.2@sha256:47a9896f86818fea323b2d38082758c62d9a0155d6fe6c4dbd7d735c556f680a`
+
+The authoritative image identity is `environment/image-manifest.json`
+(`image_id`, `image_tag`); the values above are mirrored from it.
 
 Set the Docker endpoint explicitly for every command (the build host uses an
 isolated daemon):
@@ -25,57 +28,65 @@ export DOCKER_CONFIG=/data/yinchen/docker-config
 
 ## Commands
 
-The baseline reproducer and runtime smoke script are **not** baked into the
-image. The evaluator mounts them read-only at run time; the image only carries
-`public_tests/` under `/opt/bench`. Reproduce the baseline like this:
+The baseline reproducer and runtime smoke script are curator-only tools kept
+under `validation/curator-tools/`; they are **not** in the image build context
+and are never baked into the image. No agent-visible public test suite ships in
+the image. The curator mounts the reproducer read-only at run time:
 
 ```bash
 docker run --rm --network none \
-  -v "$PWD/environment/reproduce_baseline.py:/tmp/reproduce_baseline.py:ro" \
-  ai-infra-bench/vllm-pr-30475:v1.2.1-20260903T161811Z \
+  -v "$PWD/validation/curator-tools/reproduce_baseline.py:/tmp/reproduce_baseline.py:ro" \
+  <image-ref> \
   python3 -I /tmp/reproduce_baseline.py
 ```
 
 ## Build
 
 The `environment/` Dockerfile builds the image. Its first stage fetches the
-exact Base commit and its real parent history from GitHub, so the build needs
-network egress that can pull a full git history. On this host `github.com` is
-not reachable directly, so the build uses `--network host` plus an egress proxy
-passed only as predefined build-args (`http_proxy`/`https_proxy`). Docker does
-not persist those build-args into the image or `docker history`, and no
-credential is written to the image, git tree, or evidence.
+exact Base commit and its real parent history, so the build needs a source of
+the full git history. On this host `github.com` git smart-HTTP is not reachable
+directly and the only egress proxy EOFs on the large history pack, so the build
+was run on the isolated bench daemon with the legacy builder
+(`DOCKER_BUILDKIT=0`, `--network host`) and `VLLM_REPOSITORY` pointed at a local
+git-daemon serving the full, content-verified upstream history. No credential is
+written to the image, git tree, or evidence.
 
 ```bash
-docker build --network host --no-cache \
-  --build-arg http_proxy="$EGRESS_PROXY" \
-  --build-arg https_proxy="$EGRESS_PROXY" \
-  --build-arg HTTP_PROXY="$EGRESS_PROXY" \
-  --build-arg HTTPS_PROXY="$EGRESS_PROXY" \
-  --build-arg no_proxy=localhost,127.0.0.1 \
-  --build-arg NO_PROXY=localhost,127.0.0.1 \
+DOCKER_BUILDKIT=0 docker build --network host --no-cache \
+  --build-arg VLLM_REPOSITORY="git://127.0.0.1:9418/vllm-hist.git" \
   -f environment/Dockerfile \
-  -t ai-infra-bench/vllm-pr-30475:v1.2.1-20260903T161811Z \
+  -t ai-infra-bench/vllm-pr-30475:v1.2.1-remediate-20260904T165410Z \
   environment
 ```
 
 The pytest wheels and the vLLM source archive are SHA-256-checked inside the
 Dockerfile (`ac774fb6...30240624` for the source tarball). The source archive
 is pulled from `codeload.github.com`, which is reachable directly; only the
-git-history stage requires the proxy.
+git-history stage needs the local mirror. Provenance is asserted by in-image
+content (see below), so the substituted history URL does not affect it.
 
 ## Results
 
-Rebuilt and validated on 2026-09-03 (task v1.2.1, CPU).
+Rebuilt and validated on 2026-09-05 (task v1.2.1, CPU); see
+`environment/image-manifest.json` for the authoritative record.
 
 ### Build result
 
 ```text
-elapsed: 342 seconds (--no-cache, CPU)
-image ID: sha256:3136c80d465ea0b7ad8f5c05238892e2ce1709ab2193a7b1ccee64ac9ddeccc9
-docker inspect Size: 15924285519 bytes
-base image: vllm/vllm-openai@sha256:47a9896f86818fea323b2d38082758c62d9a0155d6fe6c4dbd7d735c556f680a
+image ID: sha256:7f384099c16e399c1d0675753aa6ac64b3ff408e6089dfcc1dbd5be27e541841
+image tag: ai-infra-bench/vllm-pr-30475:v1.2.1-remediate-20260904T165410Z
+docker inspect Size: 15924622802 bytes
+base image: vllm/vllm-openai:v0.11.2@sha256:47a9896f86818fea323b2d38082758c62d9a0155d6fe6c4dbd7d735c556f680a
 ```
+
+The image was built on the isolated bench daemon with the legacy builder
+(`DOCKER_BUILDKIT=0`, `--network host`). The git-history stage's
+`VLLM_REPOSITORY` was pointed at a local git-daemon serving the full,
+content-verified upstream history because the host's only GitHub egress (proxy)
+EOFs on the large pack; provenance is asserted by in-image content
+(HEAD==base_commit, tree match, `rev-list>1`, not shallow, Oracle absent, clean
+tree), so the substituted source URL does not affect provenance. `codeload` and
+`files.pythonhosted.org` were fetched directly.
 
 ### Git provenance (verified in-image by `image-check`)
 
@@ -119,9 +130,10 @@ extensions from the exact base source and lock the native build inputs.
 
 ### Network note
 
-`github.com` (git smart-HTTP) is not reachable directly from the build host, so
-the git-history stage requires an egress proxy (passed only as predefined
-build-args, never persisted in the image, git tree, or evidence). The vLLM
-source archive and pytest wheels come from `codeload.github.com` /
+`github.com` (git smart-HTTP) is not reachable directly from the build host and
+the only egress proxy EOFs on the large history pack, so the git-history stage
+reads from a local git-daemon mirror serving the full, content-verified upstream
+history (no credential is persisted in the image, git tree, or evidence). The
+vLLM source archive and pytest wheels come from `codeload.github.com` /
 `files.pythonhosted.org`, which are reachable directly and SHA-256-checked
 inside the Dockerfile.

@@ -32,10 +32,12 @@ The runtime is configured offline and must additionally be launched with
 reproduction: it uses production `PlaceholderRange` and `EncoderCacheManager`
 classes with a sparse `P=100`, `E=8` placeholder.
 
-The public command is `python3 -m pytest /opt/bench/public_tests -q`. The
-tests intentionally accept either a property or a method for embedding-count
-behavior. This closes the original environment defect where the agent could
-not import pytest at all.
+No agent-visible public test suite ships in the image. The byte-locked pytest
+9.0.3 stack (pytest, iniconfig, packaging, pluggy, and Pygments) is installed so
+that the production `PlaceholderRange` and `EncoderCacheManager` classes can be
+exercised directly; it closes the original environment defect where the agent
+could not import pytest at all. The embedding-count behavior may be exposed as
+either a property or a method.
 
 This simplified survey environment does not rebuild native extensions from the
 exact base commit. They are inherited from the nearest digest-pinned release,
