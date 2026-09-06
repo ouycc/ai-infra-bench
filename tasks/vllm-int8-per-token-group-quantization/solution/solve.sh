@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd /workspace/repo
-git apply /solution/fix.patch
+git apply /solution/oracle.patch
 
 setup_backup="$(mktemp /tmp/vllm-setup.XXXXXX)"
 cp -p setup.py "${setup_backup}"

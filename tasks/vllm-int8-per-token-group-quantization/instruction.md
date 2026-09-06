@@ -10,12 +10,11 @@ configurable group size, epsilon, and INT8 bounds. Its quantized values
 may differ from the deterministic Triton/reference result by at most one
 integer step, and its scales must remain numerically equivalent.
 
-Work in `/workspace/repo`. After changing native sources, rebuild the focused
-candidate `_C` extension with `/opt/bench/rebuild_native.sh`. The script reports
-the candidate source digest, build command, resulting `_C` SHA-256, and the
-path loaded by a cold Python process, so use that rebuilt extension for
-validation. Keep the public native operator name
-`per_token_group_quant_int8`.
+Work in `/workspace/repo`. After changing native sources, rebuild the candidate
+`_C` extension from the repo (the build toolchain, CUDA dependencies, and the
+standard `pip install --no-build-isolation --no-deps -e .` flow are available in
+the environment) and validate against that freshly built extension. Keep the
+public native operator name `per_token_group_quant_int8`.
 
 For the performance check, use one NVIDIA A100-SXM4-40GB and first confirm
 correctness. The BF16 cases are `(32, 128)/group=64`,

@@ -25,7 +25,7 @@ candidate_status="$(git -c safe.directory="${repo}" -C "${repo}" status --short)
   printf '%s\n' "${candidate_status}"
 } > /logs/verifier/candidate-provenance.txt
 set +e
-/opt/bench/rebuild_native.sh \
+bash /tests/rebuild_for_verification.sh \
   > /logs/verifier/native-build.stdout.log \
   2> /logs/verifier/native-build.stderr.log
 build_status=$?

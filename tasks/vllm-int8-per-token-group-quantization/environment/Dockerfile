@@ -148,9 +148,6 @@ ENV HF_HUB_OFFLINE=1 \
     VLLM_NO_USAGE_STATS=1 \
     HOME=/home/agent
 
-COPY rebuild_native.sh /opt/bench/rebuild_native.sh
-RUN chmod 0555 /opt/bench/rebuild_native.sh
-
 WORKDIR /workspace/repo
 USER agent
 

@@ -1,7 +1,7 @@
 schema_version = "1.4"
 
 [task]
-name = "ai-infra-bench/vllm-pr-21476"
+name = "ai-infra-bench/vllm-int8-per-token-group-quantization"
 version = "1.2.2"
 description = "Speed up INT8 per-token-group quantization with a native vLLM CUDA operator."
 authors = [{ name = "AI Infra Bench Curators" }]
@@ -13,8 +13,9 @@ track = "representative"
 source_ids = ["vllm__pr__21476"]
 repository = "vllm-project/vllm"
 base_commit = "14bf19e39f601163265b7c7d58d972b8a83d8896"
+image_digest = "sha256:4dbff9ecefaec7fc0cdf363f55baaa1e30f9f2e2ebed05b7f3a7ac0dee90226d"
 dependency_cutoff = "2025-07-23T18:29:36Z"
-# The isolated, accepted PR head used by solution/fix.patch and the validated
+# The isolated, accepted PR head used by solution/oracle.patch and the validated
 # Oracle image. The GitHub merge commit is recorded in lock/README.md.
 oracle_commit = "2e25870f8445f9531a7fa9fb8f144bb68e4ab6e6"
 workload_type = "performance_fix"
@@ -31,7 +32,7 @@ native_extension_target = "_C"
 publication_state = "candidate-static-review"
 
 [agent]
-timeout_sec = 10800.0
+timeout_sec = 36000.0
 user = "agent"
 network_mode = "no-network"
 
