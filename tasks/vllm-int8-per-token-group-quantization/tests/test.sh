@@ -25,13 +25,20 @@ candidate_status="$(git -c safe.directory="${repo}" -C "${repo}" status --short)
   printf '%s\n' "${candidate_status}"
 } > /logs/verifier/candidate-provenance.txt
 
-# Verify frozen reference is present and unmodified
-frozen_ref=/opt/ai-infra-bench/reference-int8/reference_int8_kernel.py
-if [[ ! -f "${frozen_ref}" ]]; then
-  printf 'frozen_reference_missing\n' > /logs/verifier/failure-stage.txt
-  printf '0\n' > /logs/verifier/reward.txt
-  exit 0
-fi
+# Verify the frozen performance baseline is present and byte-identical to the
+# base-commit copy of int8_utils.py. A missing or tampered baseline is fail-closed:
+# without a trusted baseline the performance comparison is meaningless.
+frozen_dir=/opt/ai-infra-bench/reference-int8
+frozen_ref="${frozen_dir}/reference_int8_utils.py"
+frozen_loader="${frozen_dir}/frozen_reference_loader.py"
+for required in "${frozen_ref}" "${frozen_loader}"; do
+  if [[ ! -f "${required}" ]]; then
+    printf 'frozen_reference_missing path=%s\n' "${required}" \
+      > /logs/verifier/failure-stage.txt
+    printf '0\n' > /logs/verifier/reward.txt
+    exit 0
+  fi
+done
 
 expected_sha256=36406a44b95e54cf99988105d0fe9a69645a0d2fcbfe2e60b1982d3ac9fdcff3
 actual_sha256="$(sha256sum "${frozen_ref}" | awk '{print $1}')"
@@ -42,6 +49,8 @@ if [[ "${actual_sha256}" != "${expected_sha256}" ]]; then
   printf '0\n' > /logs/verifier/reward.txt
   exit 0
 fi
+printf 'frozen_reference_verified sha256=%s\n' "${actual_sha256}" \
+  > /logs/verifier/frozen-reference-stage.txt
 
 # Rebuild native extension
 set +e

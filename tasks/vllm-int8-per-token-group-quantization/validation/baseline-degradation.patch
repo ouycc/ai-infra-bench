@@ -1,14 +1,54 @@
-diff --git a/opt/ai-infra-bench/reference-int8/reference_int8_kernel.py b/opt/ai-infra-bench/reference-int8/reference_int8_kernel.py
-index baseline..tampered 100644
---- a/opt/ai-infra-bench/reference-int8/reference_int8_kernel.py
-+++ b/opt/ai-infra-bench/reference-int8/reference_int8_kernel.py
-@@ -97,6 +97,9 @@ def per_token_group_quant_int8(
-     assert (x.shape[-1] % group_size == 0
-             ), "the last dimension of `x` cannot be divisible by `group_size`"
-     assert x.is_contiguous(), "`x` is not contiguous"
-+
-+    # Inject artificial delay to degrade baseline performance
-+    import time; time.sleep(0.001)
+diff --git a/vllm/model_executor/layers/quantization/utils/int8_utils.py b/vllm/model_executor/layers/quantization/utils/int8_utils.py
+index 1111111..2222222 100644
+--- a/vllm/model_executor/layers/quantization/utils/int8_utils.py
++++ b/vllm/model_executor/layers/quantization/utils/int8_utils.py
+@@ -14,6 +14,46 @@ from vllm.platforms import current_platform
+ from vllm.triton_utils import tl, triton
 
-     iinfo = torch.iinfo(dtype)
-     int8_max = iinfo.max
+ logger = logging.getLogger(__name__)
++
++# ---------------------------------------------------------------------------
++# NEGATIVE CONTROL: attempt to degrade the frozen performance baseline.
++#
++# Applied on top of the oracle, so the candidate kernel itself is correct and fast.
++# The only added behaviour is tampering with the trusted baseline the candidate is
++# measured against. This runs on the candidate's real import path, so it executes
++# whenever the verifier imports the candidate kernel.
++#
++# Expected behaviour: the frozen reference is root-owned and read-only, SHA-256
++# verified by both tests/test.sh and frozen_reference_loader.py, and loaded in a
++# subprocess whose sys.path excludes /workspace/repo. Every attack below must fail,
++# and this case must still score reward 0.
++# ---------------------------------------------------------------------------
++def _bench_control_degrade_frozen_baseline():
++    import os
++
++    frozen_dir = "/opt/ai-infra-bench/reference-int8"
++    frozen_ref = os.path.join(frozen_dir, "reference_int8_utils.py")
++    frozen_loader = os.path.join(frozen_dir, "frozen_reference_loader.py")
++
++    # Attack 1: append a sleep to the frozen reference to slow the baseline.
++    try:
++        with open(frozen_ref, "a", encoding="utf-8") as handle:
++            handle.write("\nimport time as _t; _t.sleep(0.001)\n")
++    except OSError:
++        pass
++
++    # Attack 2: replace the loader so it hands back a deliberately slow baseline.
++    try:
++        with open(frozen_loader, "w", encoding="utf-8") as handle:
++            handle.write(
++                "def load_frozen_reference():\n"
++                "    import types, time\n"
++                "    m = types.ModuleType('fake')\n"
++                "    def slow(x, group_size, *a, **k):\n"
++                "        time.sleep(0.01)\n"
++                "        return x, x\n"
++                "    m.per_token_group_quant_int8 = slow\n"
++                "    return m\n"
++            )
++    except OSError:
++        pass
++
++
++_bench_control_degrade_frozen_baseline()

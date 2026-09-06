@@ -7,10 +7,13 @@ worker (uid 65534) via subprocess, captures the worker's structured output over
 a pipe, and writes reward.txt itself. The worker never touches /logs/verifier.
 
 FROZEN TRITON BASELINE:
-The performance baseline is the frozen Triton kernel extracted at base commit
-and installed to root-owned /opt/ai-infra-bench/reference-int8/ before the agent
-user is created. The candidate cannot modify the baseline, threshold, or timing
-protocol. Baseline is loaded in a subprocess whose sys.path excludes /workspace/repo.
+The performance baseline is reference_int8_utils.py, a BYTE-IDENTICAL copy of
+vllm/model_executor/layers/quantization/utils/int8_utils.py at the task base commit
+(SHA-256 36406a44b95e54cf99988105d0fe9a69645a0d2fcbfe2e60b1982d3ac9fdcff3, verifiable
+against upstream git history). It is installed root-owned and read-only under
+/opt/ai-infra-bench/reference-int8/ before the agent user is created, so the candidate
+cannot modify the baseline, the threshold, or the timing protocol. It is loaded through
+frozen_reference_loader.py in a subprocess whose sys.path excludes /workspace/repo.
 """
 
 from __future__ import annotations
@@ -359,16 +362,20 @@ def run_frozen_baseline_subprocess(shape: tuple, group_size: int) -> float:
     """Run frozen Triton baseline in subprocess that excludes /workspace/repo."""
     baseline_code = '''
 import sys
-# Remove /workspace/repo from sys.path so frozen reference imports
-# triton directly from root-owned site-packages, not via candidate vllm.triton_utils
+# Remove /workspace/repo from sys.path so the frozen reference resolves triton from
+# root-owned site-packages and never from candidate-authored files.
 sys.path = [p for p in sys.path if not p.startswith("/workspace/repo")]
 
 import statistics
 import torch
 
-# Import frozen reference from root-owned directory
+# Load the frozen reference through its root-owned loader. The loader verifies the
+# reference SHA-256 and installs stub vllm.* modules, so the byte-identical
+# base-commit copy of int8_utils.py imports nothing the candidate controls.
 sys.path.insert(0, "/opt/ai-infra-bench/reference-int8")
-from reference_int8_kernel import per_token_group_quant_int8 as frozen_triton_quant
+from frozen_reference_loader import load_frozen_reference
+
+frozen_triton_quant = load_frozen_reference().per_token_group_quant_int8
 
 shape = ''' + repr(shape) + '''
 group_size = ''' + str(group_size) + '''

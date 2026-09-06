@@ -14,9 +14,11 @@
     },
     {
       "apply_after": "oracle",
-      "case": "baseline-degradation",
       "expected_reward": 0,
-      "patch": "baseline-degradation.patch"
+      "name": "baseline-degradation",
+      "patch": "baseline-degradation.patch",
+      "patch_sha256": "358ee2c772ad877de7f4c8e2b79c9181fa283fef4841a1612961b96efe6dc24d",
+      "note": "negative control: candidate is correct and fast but tampers with the trusted frozen performance baseline; root-owned read-only reference plus SHA-256 verification must defeat it"
     }
   ],
   "schema_version": "ai_infra_bench_validation_cases.v1"
