@@ -38,58 +38,23 @@ def mask_from(length: int, indices: list[int]) -> torch.Tensor:
 
 
 def embedding_count(position, expected: int) -> int:
-    """Accept a semantically named property or zero-arg method; no golden shape."""
-    for name in dir(position):
-        lowered = name.lower()
-        if name.startswith("_") or "embed" not in lowered:
-            continue
-        if "num" not in lowered and "count" not in lowered:
-            continue
-        member = getattr(position, name)
-        if callable(member):
-            try:
-                if len(inspect.signature(member).parameters) != 0:
-                    continue
-                value = member()
-            except (TypeError, ValueError):
-                continue
-        else:
-            value = member
-        if isinstance(value, int) and not isinstance(value, bool) and value == expected:
-            return value
-    raise AssertionError(
-        f"no public embedding-count behavior returned {expected} for {position!r}"
-    )
+    """Use the public get_num_embeds API (property or cached_property)."""
+    actual = position.get_num_embeds
+    if actual != expected:
+        raise AssertionError(
+            f"position.get_num_embeds returned {actual}, expected {expected}"
+        )
+    return actual
 
 
 def embedding_subrange(position, start: int, end: int, expected: tuple[int, int]):
-    """Find a 2-arg embedding subrange mapping, accepting absolute or relative."""
-    offset = getattr(position, "offset", 0)
-    inputs = [(start, end)]
-    absolute = (start + offset, end + offset)
-    if absolute not in inputs:
-        inputs.append(absolute)
-    for name in dir(position):
-        if name.startswith("_") or "embed" not in name.lower():
-            continue
-        member = getattr(position, name)
-        if not callable(member):
-            continue
-        try:
-            if len(inspect.signature(member).parameters) != 2:
-                continue
-        except (TypeError, ValueError):
-            continue
-        for cand_start, cand_end in inputs:
-            try:
-                value = member(cand_start, cand_end)
-            except (AssertionError, IndexError, TypeError, ValueError):
-                continue
-            if isinstance(value, tuple) and tuple(value) == tuple(expected):
-                return tuple(value)
-    raise AssertionError(
-        f"no public embedding subrange returned {expected} for inputs {inputs}"
-    )
+    """Use the public get_embeds_indices_in_range method."""
+    actual = position.get_embeds_indices_in_range(start, end)
+    if actual != expected:
+        raise AssertionError(
+            f"get_embeds_indices_in_range({start}, {end}) returned {actual}, expected {expected}"
+        )
+    return actual
 
 
 class SparseRequest(Request):

@@ -12,6 +12,22 @@
       "name": "alternate-direct-mask-count",
       "patch": "alternate-direct-mask-count.patch",
       "patch_sha256": "d46330a3e3e39d471e7a7f543414a93cda07c8e6d759b4182c030b5c9d94cd61"
+    },
+    {
+      "apply_after": "base",
+      "expected_reward": 0,
+      "name": "early-exit-stage3",
+      "patch": "early-exit-stage3.patch",
+      "patch_sha256": "781a5d64dd6b89a10e8d2a3c9ead1ca9315dfe5c549fb2ffc4b3470c0020f3d3",
+      "note": "fault injection: worker exits early after stage 3, parent must detect missing stages"
+    },
+    {
+      "apply_after": "oracle",
+      "expected_reward": 0,
+      "name": "tamper-verification-result",
+      "patch": "tamper-verification-result.patch",
+      "patch_sha256": "74d24def928f0f38cae7d9ea25cbf4bf30c46249663e9734563ef84870ace42a",
+      "note": "fault injection: worker attempts to write fake reward.txt, parent must be authoritative"
     }
   ],
   "schema_version": "ai_infra_bench_validation_cases.v1"

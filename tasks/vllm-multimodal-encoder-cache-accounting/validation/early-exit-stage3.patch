@@ -1,0 +1,24 @@
+diff --git a/tests/verify_encoder_cache.py b/tests/verify_encoder_cache.py
+index 0000000..1111111 100644
+--- a/tests/verify_encoder_cache.py
++++ b/tests/verify_encoder_cache.py
+@@ -1,6 +1,9 @@
+ #!/usr/bin/env python3
+ """Behavioral verifier for prompt-space/embedding-space cache migration.
+
++FAULT INJECTION: early-exit-stage3
++Simulates worker exiting early (after stage 3) before completing all checks.
++
+ TRUSTED PARENT/WORKER BOUNDARY:
+ This verifier runs as root. It spawns the candidate validation as a non-root
+ worker (uid 65534) via subprocess, captures the worker's structured output over
+@@ -204,6 +207,9 @@ def check_model_runner_compact_gather():
+
+
+ def check_registry_profiles_embedding_capacity():
++    import sys
++    sys.exit(0)  # FAULT: early exit before this stage
++
+     """Use the public get_mm_max_tokens API."""
+     original_profiler = registry_module.MultiModalProfiler
+

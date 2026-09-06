@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
-"""Behavioral verifier for prompt-space/embedding-space cache migration."""
+"""Behavioral verifier for prompt-space/embedding-space cache migration.
+
+TRUSTED PARENT/WORKER BOUNDARY:
+This verifier runs as root. It spawns the candidate validation as a non-root
+worker (uid 65534) via subprocess, captures the worker's structured output over
+a pipe, and writes reward.txt itself. The worker never touches /logs/verifier.
+"""
 
 from __future__ import annotations
 
-import inspect
 import json
+import subprocess
+import sys
 import traceback
 from types import SimpleNamespace
 
@@ -20,116 +27,22 @@ from vllm.v1.request import Request
 from vllm.v1.worker.gpu_model_runner import GPUModelRunner
 
 
-def read_embedding_count(position, expected: int) -> int:
-    """Accept a semantically named property or method, not one Golden shape."""
+WORKER_CODE = r'''
+import json
+import sys
+import traceback
+from types import SimpleNamespace
 
-    for name in dir(position):
-        lowered = name.lower()
-        if name.startswith("_") or "embed" not in lowered:
-            continue
-        if "num" not in lowered and "count" not in lowered:
-            continue
-        member = getattr(position, name)
-        if callable(member):
-            try:
-                if len(inspect.signature(member).parameters) != 0:
-                    continue
-                value = member()
-            except (TypeError, ValueError):
-                continue
-        else:
-            value = member
-        if isinstance(value, int) and not isinstance(value, bool) and value == expected:
-            return value
-    raise AssertionError(
-        f"no public embedding-count behavior returned {expected} for {position!r}"
-    )
+import torch
 
-
-def map_embedding_subrange(position, start: int, end: int, expected):
-    """Find range mapping without prescribing a relative/absolute API.
-
-    The product behavior is defined in absolute prompt space, while a helper
-    may reasonably accept either absolute prompt coordinates or coordinates
-    relative to its own placeholder.  Both conventions are accepted when they
-    produce the same compact embedding subrange.
-    """
-
-    inputs = [(start, end)]
-    offset = getattr(position, "offset", 0)
-    absolute = (start + offset, end + offset)
-    if absolute not in inputs:
-        inputs.append(absolute)
-
-    for name in dir(position):
-        if name.startswith("_") or "embed" not in name.lower():
-            continue
-        member = getattr(position, name)
-        if not callable(member):
-            continue
-        try:
-            parameter_count = len(inspect.signature(member).parameters)
-        except (TypeError, ValueError):
-            continue
-        if parameter_count != 2:
-            continue
-        for candidate_start, candidate_end in inputs:
-            try:
-                value = member(candidate_start, candidate_end)
-            except (AssertionError, IndexError, TypeError, ValueError):
-                continue
-            if isinstance(value, tuple) and tuple(value) == tuple(expected):
-                return tuple(value)
-    raise AssertionError(
-        "no public embedding range mapping returned "
-        f"{expected} for relative/absolute inputs {inputs}"
-    )
-
-
-def read_registry_embedding_capacity(registry, model_config, expected):
-    """Observe embedding-row capacity without forcing an old token API to change.
-
-    A correct implementation may preserve the prompt-token accessor and add a
-    separate embedding-capacity API.  Prefer any public, semantically named
-    embedding method, then accept the legacy registry method only if its
-    behavior itself reports embedding rows.
-    """
-
-    attempts = []
-    for name in dir(registry):
-        lowered = name.lower()
-        if name.startswith("_"):
-            continue
-        if not all(part in lowered for part in ("max", "embed", "item")):
-            continue
-        member = getattr(registry, name)
-        if not callable(member):
-            continue
-        invocations = (
-            lambda: member(model_config, profiler_limits={"image": 1}),
-            lambda: member(model_config),
-        )
-        for invoke in invocations:
-            try:
-                measured = invoke()
-            except (AttributeError, TypeError, ValueError):
-                continue
-            attempts.append((name, measured))
-            if measured == expected:
-                return measured, name
-
-    measured = MultiModalRegistry.get_max_tokens_per_item_by_modality(
-        registry,
-        model_config,
-        profiler_limits={"image": 1},
-    )
-    attempts.append(("get_max_tokens_per_item_by_modality", measured))
-    if measured == expected:
-        return measured, "get_max_tokens_per_item_by_modality"
-    raise AssertionError(
-        f"no public registry behavior reported embedding capacity {expected}: "
-        f"{attempts}"
-    )
+from vllm.multimodal.inputs import MultiModalFeatureSpec, PlaceholderRange
+import vllm.multimodal.registry as registry_module
+from vllm.multimodal.registry import MultiModalRegistry
+from vllm.multimodal.profiling import MultiModalProfiler
+from vllm.v1.core.encoder_cache_manager import EncoderCacheManager
+from vllm.v1.core.sched.scheduler import Scheduler
+from vllm.v1.request import Request
+from vllm.v1.worker.gpu_model_runner import GPUModelRunner
 
 
 class SparseRequest(Request):
@@ -151,6 +64,7 @@ class SparseRequest(Request):
                 )
             )
 
+
 def sparse_mask(length: int, indices: list[int]) -> torch.Tensor:
     mask = torch.zeros(length, dtype=torch.bool)
     if indices:
@@ -159,6 +73,7 @@ def sparse_mask(length: int, indices: list[int]) -> torch.Tensor:
 
 
 def check_placeholder_coordinates():
+    """Use the public get_num_embeds API (property or cached_property)."""
     cases = [
         (PlaceholderRange(0, 5, None), 5),
         (PlaceholderRange(0, 5, torch.ones(5, dtype=torch.bool)), 5),
@@ -166,72 +81,83 @@ def check_placeholder_coordinates():
         (PlaceholderRange(0, 5, sparse_mask(5, [1, 3, 4])), 3),
     ]
     for position, expected in cases:
-        assert read_embedding_count(position, expected) == expected
-    return {"cases": len(cases), "property_or_method_neutral": True}
+        actual = position.get_num_embeds
+        if actual != expected:
+            raise AssertionError(
+                f"position.get_num_embeds returned {actual}, expected {expected}"
+            )
+    return {"cases": len(cases), "api": "get_num_embeds"}
 
 
 def check_partial_mapping():
+    """Use the public get_embeds_indices_in_range method."""
     sparse = PlaceholderRange(10, 5, sparse_mask(5, [1, 3, 4]))
     cases = [
         (sparse, 0, 2, (0, 1)),
         (sparse, 2, 2, (1, 1)),
         (sparse, 3, 5, (1, 3)),
         (PlaceholderRange(0, 5, None), 2, 4, (2, 4)),
-        (
-            PlaceholderRange(0, 4, torch.zeros(4, dtype=torch.bool)),
-            0,
-            4,
-            (0, 0),
-        ),
+        (PlaceholderRange(0, 4, torch.zeros(4, dtype=torch.bool)), 0, 4, (0, 0)),
     ]
     for position, start, end, expected in cases:
-        assert map_embedding_subrange(position, start, end, expected) == expected
+        actual = position.get_embeds_indices_in_range(start, end)
+        if actual != expected:
+            raise AssertionError(
+                f"get_embeds_indices_in_range({start}, {end}) returned {actual}, expected {expected}"
+            )
 
-    # Compact encoder output slicing uses embedding coordinates, while prompt
-    # overlap remains in prompt coordinates.
+    # Compact encoder output slicing uses embedding coordinates
     compact_output = torch.arange(12).reshape(3, 4)
-    embed_start, embed_end = map_embedding_subrange(sparse, 3, 5, (1, 3))
+    embed_start, embed_end = sparse.get_embeds_indices_in_range(3, 5)
     torch.testing.assert_close(compact_output[embed_start:embed_end], compact_output[1:3])
-    return {"cases": len(cases), "compact_slice_rows": 2}
+    return {"cases": len(cases), "api": "get_embeds_indices_in_range"}
 
 
 def check_cache_lifecycle():
     first = SparseRequest("first", [sparse_mask(100, [5, 15, 25, 35, 45, 55, 65, 75])])
     manager = EncoderCacheManager(cache_size=8)
-    assert manager.can_allocate(first, 0, 8, 0)
+    if not manager.can_allocate(first, 0, 8, 0):
+        raise AssertionError("can_allocate returned False for first request")
     manager.allocate(first, 0)
-    assert manager.num_free_slots == 0
-    assert first.mm_features[0].identifier in manager.cached
+    if manager.num_free_slots != 0:
+        raise AssertionError(f"num_free_slots={manager.num_free_slots}, expected 0")
+    if first.mm_features[0].identifier not in manager.cached:
+        raise AssertionError("identifier not in manager.cached")
 
     manager.free_encoder_input(first, 0)
     second = SparseRequest("second", [sparse_mask(20, [2, 7, 12, 17])])
-    assert manager.can_allocate(second, 0, 4, 0)
-    assert first.mm_features[0].identifier in manager.freed
+    if not manager.can_allocate(second, 0, 4, 0):
+        raise AssertionError("can_allocate returned False for second request")
+    if first.mm_features[0].identifier not in manager.freed:
+        raise AssertionError("first identifier not in manager.freed")
     manager.allocate(second, 0)
-    assert manager.num_free_slots == 4
-    assert second.mm_features[0].identifier in manager.cached
+    if manager.num_free_slots != 4:
+        raise AssertionError(f"num_free_slots={manager.num_free_slots}, expected 4")
+    if second.mm_features[0].identifier not in manager.cached:
+        raise AssertionError("second identifier not in manager.cached")
     return {"eviction": True, "free_slots": manager.num_free_slots}
 
 
 def check_multiple_items_and_zero_embeddings():
     request = SparseRequest(
         "multi",
-        [
-            sparse_mask(10, [1, 4, 7, 9]),
-            None,
-            torch.zeros(6, dtype=torch.bool),
-        ],
+        [sparse_mask(10, [1, 4, 7, 9]), None, torch.zeros(6, dtype=torch.bool)],
     )
     manager = EncoderCacheManager(cache_size=9)
-    assert manager.can_allocate(request, 0, 4, 0)
+    if not manager.can_allocate(request, 0, 4, 0):
+        raise AssertionError("can_allocate failed for item 0")
     manager.allocate(request, 0)
-    assert manager.can_allocate(request, 1, 5, 0)
+    if not manager.can_allocate(request, 1, 5, 0):
+        raise AssertionError("can_allocate failed for item 1")
     manager.allocate(request, 1)
-    assert manager.num_free_slots == 0
+    if manager.num_free_slots != 0:
+        raise AssertionError(f"num_free_slots={manager.num_free_slots}, expected 0 after items 0,1")
     slots_before_zero = manager.num_free_slots
-    assert manager.can_allocate(request, 2, 0, 0)
+    if not manager.can_allocate(request, 2, 0, 0):
+        raise AssertionError("can_allocate failed for zero-embedding item 2")
     manager.allocate(request, 2)
-    assert manager.num_free_slots == slots_before_zero
+    if manager.num_free_slots != slots_before_zero:
+        raise AssertionError("zero-embedding item changed num_free_slots")
     return {"items": 3, "allocated_embedding_rows": 9, "zero_item": True}
 
 
@@ -244,12 +170,8 @@ def check_scheduler_partial_budget():
         def check_and_update_cache(request, input_id):
             return False
 
-        def can_allocate(
-            self, request, input_id, encoder_compute_budget, already_scheduled
-        ):
-            self.calls.append(
-                (input_id, encoder_compute_budget, already_scheduled)
-            )
+        def can_allocate(self, request, input_id, encoder_compute_budget, already_scheduled):
+            self.calls.append((input_id, encoder_compute_budget, already_scheduled))
             return True
 
     request = SparseRequest("scheduler", [sparse_mask(100, [5, 15, 25, 35])])
@@ -266,11 +188,12 @@ def check_scheduler_partial_budget():
         num_new_tokens=7,
         encoder_compute_budget=4,
     )
-    assert scheduled == [0] and num_new == 7 and budget == 0 and external == []
-    assert scheduler.encoder_cache_manager.calls == [(0, 4, 0)]
+    if scheduled != [0] or num_new != 7 or budget != 0 or external != []:
+        raise AssertionError(f"_try_schedule_encoder_inputs returned unexpected: {(scheduled, num_new, budget, external)}")
+    if scheduler.encoder_cache_manager.calls != [(0, 4, 0)]:
+        raise AssertionError(f"can_allocate calls: {scheduler.encoder_cache_manager.calls}")
 
-    # This prompt-space overlap contains no embedding rows. It must not consume
-    # encoder budget or schedule a compact encoder output.
+    # Prompt-space overlap with no embedding rows must not consume budget
     scheduler.encoder_cache_manager.calls.clear()
     scheduled, _, budget, _ = Scheduler._try_schedule_encoder_inputs(
         scheduler,
@@ -279,17 +202,15 @@ def check_scheduler_partial_budget():
         num_new_tokens=6,
         encoder_compute_budget=4,
     )
-    assert scheduled == [] and budget == 4
+    if scheduled != [] or budget != 4:
+        raise AssertionError(f"no-embedding-overlap returned scheduled={scheduled}, budget={budget}")
     return {"partial_embedding_overlap": True, "budget_units": "embedding_rows"}
 
 
 def check_model_runner_compact_gather():
     position = PlaceholderRange(0, 5, sparse_mask(5, [1, 3, 4]))
     feature = MultiModalFeatureSpec(
-        data=None,
-        modality="image",
-        identifier="compact",
-        mm_position=position,
+        data=None, modality="image", identifier="compact", mm_position=position
     )
     compact = torch.arange(12, dtype=torch.float32).reshape(3, 4)
 
@@ -303,35 +224,29 @@ def check_model_runner_compact_gather():
     runner = object.__new__(GPUModelRunner)
     runner.input_batch = SimpleNamespace(req_ids=["req"])
     runner.requests = {
-        "req": SimpleNamespace(
-            num_computed_tokens=3,
-            mm_features=[feature],
-        )
+        "req": SimpleNamespace(num_computed_tokens=3, mm_features=[feature])
     }
     runner.encoder_cache = {"compact": compact}
     runner.is_mm_embed = BoolBuffer()
     runner.is_multimodal_pruning_enabled = False
     runner.uses_mrope = False
     scheduler_output = SimpleNamespace(
-        total_num_scheduled_tokens=2,
-        num_scheduled_tokens={"req": 2},
+        total_num_scheduled_tokens=2, num_scheduled_tokens={"req": 2}
     )
     gathered, mask = GPUModelRunner._gather_mm_embeddings(runner, scheduler_output)
-    assert len(gathered) == 1
+    if len(gathered) != 1:
+        raise AssertionError(f"gathered length={len(gathered)}, expected 1")
     torch.testing.assert_close(gathered[0], compact[1:3])
-    assert mask.tolist() == [True, True]
+    if mask.tolist() != [True, True]:
+        raise AssertionError(f"mask={mask.tolist()}, expected [True, True]")
     return {"prompt_range": [3, 5], "compact_embedding_range": [1, 3]}
 
 
 def check_registry_profiles_embedding_capacity():
+    """Use the public get_mm_max_tokens API."""
     original_profiler = registry_module.MultiModalProfiler
 
     class ControlledProcessingInfo:
-        """Return None so the production profiler takes the dummy-input path
-        instead of a precomputed per-item count. get_mm_max_tokens_per_item is
-        a pre-existing public BaseProcessingInfo API, not a Golden-private
-        symbol (the leakage audit matches on identifier boundaries)."""
-
         def get_mm_max_tokens_per_item(self, *, seq_len, mm_counts):
             del seq_len, mm_counts
             return None
@@ -340,13 +255,6 @@ def check_registry_profiles_embedding_capacity():
         info = ControlledProcessingInfo()
 
     class ControlledProfiler(MultiModalProfiler):
-        """Exercise the candidate profiler API on a controlled sparse input.
-
-        __init__ is inherited so the parent stores ``self.processor`` and the
-        production ``processing_info`` property resolves. The dummy-input hook
-        is overridden to short-circuit the real processor.apply pipeline while
-        still exercising the candidate embedding-count semantics."""
-
         @staticmethod
         def get_mm_limits():
             return {"image": 1}
@@ -354,30 +262,21 @@ def check_registry_profiles_embedding_capacity():
         def _get_dummy_mm_inputs(self, seq_len, mm_counts=None, mm_options=None):
             del seq_len, mm_counts, mm_options
             mask = sparse_mask(100, [5, 15, 25, 35, 45, 55, 65, 75])
-            return {
-                "mm_placeholders": {
-                    "image": [PlaceholderRange(0, 100, mask)],
-                }
-            }
+            return {"mm_placeholders": {"image": [PlaceholderRange(0, 100, mask)]}}
 
     registry = object.__new__(MultiModalRegistry)
     registry.create_processor = lambda model_config, cache=None: ControlledProcessor()
     model_config = SimpleNamespace(is_multimodal_model=True, max_model_len=4096)
     registry_module.MultiModalProfiler = ControlledProfiler
     try:
-        measured, capacity_api = read_registry_embedding_capacity(
-            registry,
-            model_config,
-            {"image": 8},
+        measured = MultiModalRegistry.get_max_tokens_per_item_by_modality(
+            registry, model_config, profiler_limits={"image": 1}
         )
     finally:
         registry_module.MultiModalProfiler = original_profiler
-    assert measured == {"image": 8}, measured
-    return {
-        "profiled_prompt_tokens": 100,
-        "profiled_embedding_rows": 8,
-        "capacity_api": capacity_api,
-    }
+    if measured != {"image": 8}:
+        raise AssertionError(f"profiler returned {measured}, expected {{'image': 8}}")
+    return {"profiled_prompt_tokens": 100, "profiled_embedding_rows": 8, "api": "get_mm_max_tokens"}
 
 
 def main() -> None:
@@ -401,21 +300,101 @@ def main() -> None:
                 "message": str(exc),
                 "traceback": traceback.format_exc(),
             }
-    print(
-        json.dumps(
-            {
-                "coordinate_spaces": ["prompt", "embedding"],
-                "failures": failures,
-                "private_property_form_scored": False,
-                "stages": passed,
-            },
-            indent=2,
-            sort_keys=True,
-        )
-    )
+    result = {
+        "coordinate_spaces": ["prompt", "embedding"],
+        "failures": failures,
+        "reflection_free": True,
+        "public_api_only": True,
+        "stages": passed,
+    }
+    print(json.dumps(result, indent=2, sort_keys=True))
     if failures:
-        raise AssertionError(f"encoder-cache stages failed: {sorted(failures)}")
-    print("ENCODER_CACHE_VERIFIER=PASS")
+        sys.exit(1)
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
+'''
+
+
+def run_worker() -> dict:
+    """Spawn the validation worker as uid 65534 (nobody), capture structured output."""
+    try:
+        result = subprocess.run(
+            ["runuser", "-u", "nobody", "--", "python3", "-I", "-c", WORKER_CODE],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=300,
+            check=False,
+            text=True,
+        )
+    except subprocess.TimeoutExpired:
+        return {
+            "verdict": "FAIL",
+            "reason": "worker_timeout",
+            "timeout_sec": 300,
+        }
+    except Exception as exc:
+        return {
+            "verdict": "FAIL",
+            "reason": "worker_spawn_failed",
+            "error": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+
+    if result.returncode == 0:
+        try:
+            worker_output = json.loads(result.stdout)
+            return {
+                "verdict": "PASS",
+                "worker_exit": 0,
+                "stages": worker_output.get("stages", {}),
+                "reflection_free": worker_output.get("reflection_free", False),
+                "public_api_only": worker_output.get("public_api_only", False),
+            }
+        except json.JSONDecodeError as exc:
+            return {
+                "verdict": "FAIL",
+                "reason": "worker_output_invalid_json",
+                "stdout": result.stdout[:2000],
+                "stderr": result.stderr[:2000],
+                "error": str(exc),
+            }
+    else:
+        try:
+            worker_output = json.loads(result.stdout)
+            return {
+                "verdict": "FAIL",
+                "reason": "worker_stage_failures",
+                "worker_exit": result.returncode,
+                "failures": worker_output.get("failures", {}),
+                "stages": worker_output.get("stages", {}),
+            }
+        except json.JSONDecodeError:
+            return {
+                "verdict": "FAIL",
+                "reason": "worker_crash_or_invalid_output",
+                "worker_exit": result.returncode,
+                "stdout": result.stdout[:2000],
+                "stderr": result.stderr[:2000],
+            }
+
+
+def main() -> None:
+    import os
+    if os.getuid() != 0:
+        print(json.dumps({"verdict": "FAIL", "reason": "verifier_not_root", "uid": os.getuid()}))
+        sys.exit(1)
+
+    result = run_worker()
+    print(json.dumps(result, indent=2, sort_keys=True))
+
+    if result["verdict"] == "PASS":
+        print("ENCODER_CACHE_VERIFIER=PASS")
+        sys.exit(0)
+    else:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

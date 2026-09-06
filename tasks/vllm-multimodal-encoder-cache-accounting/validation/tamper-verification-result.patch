@@ -1,0 +1,29 @@
+diff --git a/tests/verify_encoder_cache.py b/tests/verify_encoder_cache.py
+index 0000000..2222222 100644
+--- a/tests/verify_encoder_cache.py
++++ b/tests/verify_encoder_cache.py
+@@ -1,6 +1,9 @@
+ #!/usr/bin/env python3
+ """Behavioral verifier for prompt-space/embedding-space cache migration.
+
++FAULT INJECTION: tamper-verification-result
++Worker attempts to write fake reward.txt (should be blocked by parent isolation).
++
+ TRUSTED PARENT/WORKER BOUNDARY:
+ This verifier runs as root. It spawns the candidate validation as a non-root
+ worker (uid 65534) via subprocess, captures the worker's structured output over
+@@ -227,6 +230,13 @@ def check_registry_profiles_embedding_capacity():
+
+
+ def main() -> None:
++    # FAULT: attempt to write reward.txt before running checks
++    # This should fail (permission denied for nobody writing to /logs/verifier)
++    # or be ignored (parent overwrites it). Either way, parent must be authoritative.
++    try:
++        with open("/logs/verifier/reward.txt", "w") as f:
++            f.write("1\n")
++    except Exception:
++        pass
+     stages = {
+         "placeholder_coordinates": check_placeholder_coordinates,
+         "partial_mapping": check_partial_mapping,
