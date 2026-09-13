@@ -18,7 +18,7 @@ import traceback
 from pathlib import Path
 
 
-from vllm.config import ParallelConfig, SchedulerConfig, VllmConfig
+from vllm.config import ModelConfig, ParallelConfig, SchedulerConfig, VllmConfig
 
 # Fixtures come from the task-owned, root-staged /tests tree. The candidate
 # work tree is deliberately NOT placed on sys.path here: the candidate must
@@ -90,9 +90,8 @@ LOCAL_MODEL_CONFIG = str(
 class TargetInvariantFailure(RuntimeError):
     """An owned target-boundary invariant was violated.
 
-    Distinct from arbitrary runtime errors: only this type is accepted as a
-    legitimate reward-zeroing outcome (Base/control fail the contract). It is
-    lowered to a single classified ``...=FAIL`` marker with a reason code.
+    Classified as FAIL with a reason code. Other execution errors also prevent
+    a passing score, but require diagnosis before attributing their cause.
     """
 
     def __init__(self, code: str, detail: str):
@@ -103,8 +102,13 @@ class TargetInvariantFailure(RuntimeError):
 
 def check_config() -> int:
     cfg = VllmConfig(
+        model_config=ModelConfig(
+            model=LOCAL_MODEL_CONFIG,
+            skip_tokenizer_init=True,
+            max_model_len=2048,
+        ),
         scheduler_config=SchedulerConfig(
-            max_model_len=8192,
+            max_model_len=2048,
             is_encoder_decoder=False,
             async_scheduling=True,
         ),
@@ -226,7 +230,9 @@ def main():
                           'traceback': traceback.format_exc()}), flush=True)
         return 1
     except Exception as exc:
-        print(json.dumps({'verdict': 'INFRA_ERROR', 'detail': str(exc),
+        # The exception may originate in the candidate, verifier, or environment.
+        # This label records an execution failure without assigning blame.
+        print(json.dumps({'verdict': 'EXECUTION_ERROR', 'detail': str(exc),
                           'traceback': traceback.format_exc()}), flush=True)
         return 2
 
