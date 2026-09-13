@@ -1,33 +1,13 @@
-Historical review of an earlier revision. Current status and evidence are in `review-report.md` and `e2e-evidence.json`.
+# Final review
 
-PR18 构造函数与调度时序：本轮修订及本地验证完成。
+Version 1.4.0 can be retained after the Worker/executor repair. Both unchanged Astra submissions receive 1, all 19 active Base/Oracle/control cases match their expected rewards, and Harbor Oracle receives 1 with no exception. The task statement, reference patch and image are unchanged.
 
-前次通过结论在契约/fixture 问题确认后撤回，本报告替代旧结论；历史 raw reward 未修改。
+GPU behavior now runs the actual scheduler, mp executor, Worker construction and dispatch, activation transport and model input path. It no longer bypasses a valid Worker-owned token receive. The tests also allow equivalent CPU activation metadata APIs, follow EngineCore's empty-step dispatch, and accept skipped discarded-logit work. Five correct alternatives pass; the 13 negative controls cover missing progress, token/prompt corruption, explicit and implicit waits, wrong final-rank behavior, duplicate collection and the demonstrated scoring bypasses.
 
-修复：Run production constructor. Substitute only model computation/sampling inputs; keep constructor-owned buffers and state. Specify schedule twice before update_from_output while requests remain runnable and resources are sufficient. Retain no CPU-object collective or device-to-host synchronization constraints.
+The serial control is rejected during the causal prefill gate, before E2E. Its delayed second submission ends in failure cleanup and the existing RPC timeout, so this is a 450.6-second negative case rather than an immediate assertion. The generic remote exception label does not determine attribution; underlying candidate and fixture traces are recorded in local-regressions.json.
 
-语义边界：Real initialized production runner with valid model configuration and sampled GPU tensors -> real PP NCCL handoff and retained/discarded bookkeeping -> next GPU input preparation and next async scheduler round
+The direct Oracle and Harbor verifier take 558.8 and 553.117 seconds. The Astra replays take 552.1 and 555.9 seconds; every original changed file is byte-identical. Correct alternatives take 511.1–562.3 seconds on the shared two GPUs. All 41 CUDA observer checks pass. These are representative contract checks and not a universal malicious-code security boundary.
 
-覆盖：Real constructor and CPU/GPU buffers, CONFIG, SCHEDULER_REENTRY at 1/3 requests, NCCL_BASIC/REORDERED/INTEGRATED with two ranks, production output materialization and next GPU input consumption; independent five-request interleaved-discard challenge.
+Harbor trial task__mAoVBAA uses checksum 4152b12a5e59f1f2933d2788e69beeee233e414c75ccb58ddf07b43a0045c1c5 and image sha256:cf04408e8aed807333ff1522f952182aa7948f2a32e3caeee79dac9b95911e69. Source hashes, original rescore records, complete logs, prior defects and superseded probes are preserved in e2e-evidence.json and the worker-boundary archives. Runtime files match the tested snapshot; evidence-only updates follow validation.
 
-替代及限制：Runner initialization and world/TP/PP groups are real. Model weights/attention execution and sampling computation are replaced by valid sampled-tensor inputs. No attention is executed; empty KV groups are supplied to the downstream state slice. This is not a full model generation deployment.
-
-| Case | Expected | Actual | Harbor errors |
-|---|---:|---:|---:|
-| alternate-inline-nccl | 1 | 1.0 | 0 |
-| base | 0 | 0.0 | 0 |
-| constructor-owned-transport | 1 | 1.0 | 0 |
-| cpu-sync-object-collective | 0 | 0.0 | 0 |
-| early-os-exit | 0 | 0.0 | 0 |
-| early-system-exit | 0 | 0.0 | 0 |
-| group-coordinator-broadcast | 1 | 1.0 | 0 |
-| oracle | 1 | 1.0 | 0 |
-| post-broadcast-failure | 0 | 0.0 | 0 |
-| oracle (frozen final) | 1 | 1.0 | 0 |
-
-独立 challenge：6 个状态均符合预期。
-PR18：同一正确的构造函数实现，在旧 fixture 中因属性缺失得 0；新 fixture 中得 1。原始 agent 的 CPU 通信/同步问题未因此被改成通过。
-
-原始日志、job/trial、镜像与文件 SHA256：validation/e2e-evidence.json。
-本轮证据根目录：/data/yinchen/task-contract-fixture-fix-20260909T033612Z
-改动未提交、未推送。
+Strict artifact and staged scope audits pass with no warnings or errors. The validated changes are prepared for the authorized commit and push to codex/async-pp-behavior-hardening; only this task is staged.

@@ -21,6 +21,7 @@ def main():
         ("to_cpu", lambda: x.to("cpu"), True),
         ("copy_to_cpu", lambda: destination.copy_(x), True),
         ("cuda_item", lambda: x[0].item(), True),
+        ("implicit_nonzero_sync", lambda: torch.nonzero(x >= 0), True),
         ("cuda_tolist", lambda: x.tolist(), True),
         ("device_sync", lambda: torch.cuda.synchronize(), True),
         ("stream_sync", lambda: torch.cuda.current_stream().synchronize(), True),
@@ -47,6 +48,47 @@ def main():
                             "expected_rejected": rejected,
                             "violations": observer.violations,
                             "transfers": observer.transfers})
+    prior = torch.cuda.Event()
+    prior.record()
+    observer = HandoffObserver(prior_event_ids=[id(prior)])
+    with observer.observe():
+        prior.synchronize()
+    assert not observer.violations, observer.violations
+    records.append({'case': 'prior_input_event', 'expected_rejected': False})
+    observer = HandoffObserver(prior_event_ids=[id(prior)])
+    with observer.observe():
+        prior.record()
+        prior.synchronize()
+    assert observer.violations, 're-recorded event must lose its pre-handoff exemption'
+    records.append({'case': 'rerecorded_event', 'expected_rejected': True})
+    observer = HandoffObserver()
+    with observer.observe():
+        with observer.pause():
+            x.cpu()
+            torch.cuda.synchronize()
+    assert not observer.violations, observer.violations
+    records.append({'case': 'test_owned_observation', 'expected_rejected': False})
+    observer = HandoffObserver()
+    with observer.observe():
+        with observer.pause():
+            x.cpu()
+        torch.cuda.current_stream().synchronize()
+    assert observer.violations, 'candidate waits after observation must still be rejected'
+    records.append({'case': 'candidate_wait_after_observation', 'expected_rejected': True})
+    import tempfile
+    import torch.distributed as dist
+    with tempfile.TemporaryDirectory() as directory:
+        dist.init_process_group('gloo', init_method=f'file://{directory}/store', rank=0, world_size=1)
+        for checking, wait, rejected in [(False, False, False), (True, False, True), (False, True, True)]:
+            observer = HandoffObserver(check_object_communication=checking)
+            with observer.observe():
+                dist.broadcast_object_list([{'shape': [2, 64]}])
+                if wait:
+                    torch.cuda.current_stream().synchronize()
+            assert bool(observer.violations) == rejected, observer.violations
+            records.append({'case': 'object_boundary', 'check_objects': checking,
+                            'cuda_wait': wait, 'expected_rejected': rejected})
+        dist.destroy_process_group()
     print(json.dumps(records, indent=2))
     print("HANDOFF_OBSERVER_REGRESSIONS=PASS")
 
